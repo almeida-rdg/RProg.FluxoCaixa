@@ -1,0 +1,26 @@
+<Solution>
+  <Folder Name="/docs/">
+    <File Path="docs/ArchitectureDiagram.excalidraw" />
+    <File Path="docs/C4DiagramaContainer.png" />
+    <File Path="docs/C4DiagramaContexto.png" />
+    <File Path="docs/documento-arquitetural.md" />
+    <File Path="docs/SPEC-FluxoCaixa.md" />
+  </Folder>
+  <Folder Name="/src/" />
+  <Folder Name="/src/consolidado/">
+    <Project Path="src/consolidado/RProg.FluxoCaixa.Consolidado.Test/RProg.FluxoCaixa.Consolidado.Test.csproj" />
+    <Project Path="src/consolidado/RProg.FluxoCaixa.Consolidado/RProg.FluxoCaixa.Consolidado.csproj" />
+  </Folder>
+  <Folder Name="/src/lancamentos/">
+    <Project Path="src/lancamentos/RProg.FluxoCaixa.Lancamentos.Test/RProg.FluxoCaixa.Lancamentos.Test.csproj" />
+    <Project Path="src/lancamentos/RProg.FluxoCaixa.Lancamentos/RProg.FluxoCaixa.Lancamentos.csproj" />
+  </Folder>
+  <Folder Name="/src/proxy/">
+    <Project Path="src/proxy/RProg.FluxoCaixa.Proxy.Test/RProg.FluxoCaixa.Proxy.Test.csproj" />
+    <Project Path="src/proxy/RProg.FluxoCaixa.Proxy/RProg.FluxoCaixa.Proxy.csproj" />
+  </Folder>
+  <Folder Name="/src/worker/">
+    <Project Path="src/worker/RProg.FluxoCaixa.Worker.Test/RProg.FluxoCaixa.Worker.Test.csproj" />
+    <Project Path="src/worker/RProg.FluxoCaixa.Worker/RProg.FluxoCaixa.Worker.csproj" />
+  </Folder>
+</Solution>
