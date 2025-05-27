@@ -249,9 +249,7 @@ namespace RProg.FluxoCaixa.Worker.Infrastructure.Data
                 _logger.LogError(ex, "Erro ao executar limpeza de registros antigos");
                 throw;
             }
-        }
-
-        public async Task InicializarEstruturaBancoAsync()
+        }        public async Task InicializarEstruturaBancoAsync()
         {
             const string sqlCreateTable = @"
                 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='ConsolidadoDiario' AND xtype='U')
@@ -281,6 +279,113 @@ namespace RProg.FluxoCaixa.Worker.Infrastructure.Data
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Erro ao inicializar estrutura da tabela ConsolidadoDiario");
+                throw;
+            }
+        }
+
+        // Métodos específicos para a API de consultas CQRS
+        public async Task<IEnumerable<ConsolidadoDiario>> ObterPorPeriodoAsync(DateTime dataInicial, DateTime dataFinal, CancellationToken cancellationToken = default)
+        {
+            const string sql = @"
+                SELECT Id, Data, Categoria, TotalCreditos, TotalDebitos, SaldoLiquido, 
+                       QuantidadeLancamentos, DataCriacao, DataAtualizacao
+                FROM ConsolidadoDiario 
+                WHERE Data >= @DataInicial AND Data <= @DataFinal
+                ORDER BY Data ASC, CASE WHEN Categoria IS NULL THEN 0 ELSE 1 END, Categoria ASC";
+
+            try
+            {
+                var resultado = await _connection.QueryAsync<ConsolidadoDiario>(sql,
+                    new { DataInicial = dataInicial, DataFinal = dataFinal });
+
+                _logger.LogInformation("Consulta por período executada com sucesso. Período: {DataInicial:yyyy-MM-dd} a {DataFinal:yyyy-MM-dd}, Registros: {Count}",
+                    dataInicial, dataFinal, resultado.Count());
+
+                return resultado;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao consultar consolidados por período. Período: {DataInicial:yyyy-MM-dd} a {DataFinal:yyyy-MM-dd}",
+                    dataInicial, dataFinal);
+                throw;
+            }
+        }
+
+        public async Task<DateTime?> ObterUltimaDataAtualizacaoAsync(DateTime dataInicial, DateTime dataFinal, CancellationToken cancellationToken = default)
+        {
+            const string sql = @"
+                SELECT MAX(DataAtualizacao) 
+                FROM ConsolidadoDiario 
+                WHERE Data >= @DataInicial AND Data <= @DataFinal";
+
+            try
+            {
+                var resultado = await _connection.QuerySingleOrDefaultAsync<DateTime?>(sql,
+                    new { DataInicial = dataInicial, DataFinal = dataFinal });
+
+                _logger.LogDebug("Última data de atualização obtida para período {DataInicial:yyyy-MM-dd} a {DataFinal:yyyy-MM-dd}: {UltimaAtualizacao}",
+                    dataInicial, dataFinal, resultado?.ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A");
+
+                return resultado;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao obter última data de atualização. Período: {DataInicial:yyyy-MM-dd} a {DataFinal:yyyy-MM-dd}",
+                    dataInicial, dataFinal);
+                throw;
+            }
+        }
+
+        public async Task<IEnumerable<ConsolidadoDiario>> ObterPorPeriodoECategoriaAsync(DateTime dataInicial, DateTime dataFinal, string categoria, CancellationToken cancellationToken = default)
+        {
+            const string sql = @"
+                SELECT Id, Data, Categoria, TotalCreditos, TotalDebitos, SaldoLiquido, 
+                       QuantidadeLancamentos, DataCriacao, DataAtualizacao
+                FROM ConsolidadoDiario 
+                WHERE Data >= @DataInicial AND Data <= @DataFinal
+                  AND Categoria = @Categoria
+                ORDER BY Data ASC";
+
+            try
+            {
+                var resultado = await _connection.QueryAsync<ConsolidadoDiario>(sql,
+                    new { DataInicial = dataInicial, DataFinal = dataFinal, Categoria = categoria });
+
+                _logger.LogInformation("Consulta por período e categoria executada com sucesso. Período: {DataInicial:yyyy-MM-dd} a {DataFinal:yyyy-MM-dd}, Categoria: {Categoria}, Registros: {Count}",
+                    dataInicial, dataFinal, categoria, resultado.Count());
+
+                return resultado;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao consultar consolidados por período e categoria. Período: {DataInicial:yyyy-MM-dd} a {DataFinal:yyyy-MM-dd}, Categoria: {Categoria}",
+                    dataInicial, dataFinal, categoria);
+                throw;
+            }
+        }
+
+        public async Task<DateTime?> ObterUltimaDataAtualizacaoPorCategoriaAsync(DateTime dataInicial, DateTime dataFinal, string categoria, CancellationToken cancellationToken = default)
+        {
+            const string sql = @"
+                SELECT MAX(DataAtualizacao) 
+                FROM ConsolidadoDiario 
+                WHERE Data >= @DataInicial AND Data <= @DataFinal
+                  AND Categoria = @Categoria";
+
+            try
+            {
+                var resultado = await _connection.QuerySingleOrDefaultAsync<DateTime?>(sql,
+                    new { DataInicial = dataInicial, DataFinal = dataFinal, Categoria = categoria });
+
+                _logger.LogDebug("Última data de atualização por categoria obtida para período {DataInicial:yyyy-MM-dd} a {DataFinal:yyyy-MM-dd}, Categoria: {Categoria}: {UltimaAtualizacao}",
+                    dataInicial, dataFinal, categoria, resultado?.ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A");
+
+                return resultado;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao obter última data de atualização por categoria. Período: {DataInicial:yyyy-MM-dd} a {DataFinal:yyyy-MM-dd}, Categoria: {Categoria}",
+                    dataInicial, dataFinal, categoria);
                 throw;
             }
         }

@@ -9,13 +9,14 @@ using RProg.FluxoCaixa.Lancamentos.Infrastructure;
 using RProg.FluxoCaixa.Lancamentos.Infrastructure.Data.Dapper;
 
 namespace RProg.FluxoCaixa.Lancamentos.Test.Application.Commands
-{    public class RegistrarLancamentoHandlerTest
+{
+    public class RegistrarLancamentoHandlerTest
     {
         private readonly Mock<IMensageriaPublisher> _mensageriaPublisherMock;
         private readonly Mock<ILancamentoRepository> _lancamentoRepositoryMock;
         private readonly Mock<ILogger<RegistrarLancamentoHandler>> _loggerMock;
         private readonly RegistrarLancamentoHandler _handler;
-        private readonly Faker _faker;        public RegistrarLancamentoHandlerTest()
+        private readonly Faker _faker; public RegistrarLancamentoHandlerTest()
         {
             _mensageriaPublisherMock = new Mock<IMensageriaPublisher>();
             _lancamentoRepositoryMock = new Mock<ILancamentoRepository>();
@@ -46,7 +47,8 @@ namespace RProg.FluxoCaixa.Lancamentos.Test.Application.Commands
             resultado.Should().Be(lancamentoId);
             _lancamentoRepositoryMock.Verify(x => x.CriarLancamentoAsync(It.IsAny<Lancamento>()), Times.Once);
             _mensageriaPublisherMock.Verify(x => x.PublicarMensagemAsync(comando), Times.Once);
-        }        [Fact]
+        }
+        [Fact]
         public async Task Handle_DadoValorZero_DeveLancarExcecaoRegraDeNegocio()
         {
             // Arrange - Dado um comando com valor zero
@@ -56,7 +58,8 @@ namespace RProg.FluxoCaixa.Lancamentos.Test.Application.Commands
             // Act & Assert - Quando processar o comando então deve lançar exceção da entidade
             var excecao = await Assert.ThrowsAsync<ExcecaoRegraDeNegocio>(() => _handler.Handle(comando, CancellationToken.None));
             excecao.Message.Should().Be("O valor do lançamento não pode ser zero.");
-        }        [Fact]
+        }
+        [Fact]
         public async Task Handle_DadoCreditoComValorNegativo_DeveLancarExcecaoRegraDeNegocio()
         {
             // Arrange - Dado um comando de crédito com valor negativo
@@ -67,7 +70,8 @@ namespace RProg.FluxoCaixa.Lancamentos.Test.Application.Commands
             // Act & Assert - Quando processar o comando então deve lançar exceção da entidade
             var excecao = await Assert.ThrowsAsync<ExcecaoRegraDeNegocio>(() => _handler.Handle(comando, CancellationToken.None));
             excecao.Message.Should().Be("Lançamentos de crédito não podem ter valores negativos.");
-        }        [Fact]
+        }
+        [Fact]
         public async Task Handle_DadoDebitoComValorPositivo_DeveLancarExcecaoRegraDeNegocio()
         {
             // Arrange - Dado um comando de débito com valor positivo
@@ -77,7 +81,8 @@ namespace RProg.FluxoCaixa.Lancamentos.Test.Application.Commands
 
             // Act & Assert - Quando processar o comando então deve lançar exceção da entidade
             var excecao = await Assert.ThrowsAsync<ExcecaoRegraDeNegocio>(() => _handler.Handle(comando, CancellationToken.None));
-            excecao.Message.Should().Be("Lançamentos de débito não podem ter valores positivos.");        }
+            excecao.Message.Should().Be("Lançamentos de débito não podem ter valores positivos.");
+        }
 
         [Theory]
         [InlineData(null)]
@@ -92,7 +97,8 @@ namespace RProg.FluxoCaixa.Lancamentos.Test.Application.Commands
             // Act & Assert - Quando processar o comando então deve lançar exceção
             var excecao = await Assert.ThrowsAsync<ExcecaoDadosInvalidos>(() => _handler.Handle(comando, CancellationToken.None));
             excecao.Message.Should().Be("A descrição é obrigatória.");
-        }        [Theory]
+        }
+        [Theory]
         [InlineData("ab")]
         [InlineData("a1")]
         [InlineData("12")]
@@ -121,7 +127,8 @@ namespace RProg.FluxoCaixa.Lancamentos.Test.Application.Commands
             // Act & Assert - Quando processar o comando então deve lançar exceção
             var excecao = await Assert.ThrowsAsync<ExcecaoDadosInvalidos>(() => _handler.Handle(comando, CancellationToken.None));
             excecao.Message.Should().Be("A categoria é obrigatória.");
-        }        [Theory]
+        }
+        [Theory]
         [InlineData("ab")]
         [InlineData("a1")]
         [InlineData("12")]

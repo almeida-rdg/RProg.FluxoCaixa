@@ -15,6 +15,12 @@ namespace RProg.FluxoCaixa.Worker.Services
         private readonly ILancamentoProcessadoRepository _lancamentoProcessadoRepository;
         private readonly ILogger<ConsolidacaoService> _logger;
 
+        /// <summary>
+        /// Inicializa uma nova instância da classe <see cref="ConsolidacaoService"/>.
+        /// </summary>
+        /// <param name="consolidadoRepository">O repositório de consolidados.</param>
+        /// <param name="lancamentoProcessadoRepository">O repositório de lançamentos processados.</param>
+        /// <param name="logger">O logger.</param>
         public ConsolidacaoService(
             IConsolidadoRepository consolidadoRepository,
             ILancamentoProcessadoRepository lancamentoProcessadoRepository,
@@ -25,16 +31,23 @@ namespace RProg.FluxoCaixa.Worker.Services
             _logger = logger;
         }
 
+        /// <summary>
+        /// Processa um lançamento financeiro, atualizando as consolidações diárias.
+        /// </summary>
+        /// <param name="lancamento">O DTO do lançamento a ser processado.</param>
+        /// <param name="cancellationToken">Um token para observar enquanto espera a tarefa ser completada.</param>
+        /// <returns>Um <see cref="Task"/> que representa a operação assíncrona. O resultado da tarefa contém <c>true</c> se o lançamento foi processado com sucesso; <c>false</c> se já havia sido processado.</returns>
         public async Task<bool> ProcessarLancamentoAsync(LancamentoDto lancamento, CancellationToken cancellationToken)
         {
-            _logger.LogInformation("Iniciando processamento do lançamento ID: {LancamentoId}, Valor: {Valor}, Data: {Data}", 
-                lancamento.Id, lancamento.Valor, lancamento.Data);            // Verificar se o lançamento já foi processado (idempotência)
+            _logger.LogInformation("Iniciando processamento do lançamento ID: {LancamentoId}, Valor: {Valor}, Data: {Data}",
+                lancamento.Id, lancamento.Valor, lancamento.Data);
+            // Verificar se o lançamento já foi processado (idempotência)
             var jaProcessado = await _lancamentoProcessadoRepository
                 .JaFoiProcessadoAsync(lancamento.Id, cancellationToken);
 
             if (jaProcessado)
             {
-                _logger.LogInformation("Lançamento ID: {LancamentoId} já foi processado anteriormente. Ignorando.", 
+                _logger.LogInformation("Lançamento ID: {LancamentoId} já foi processado anteriormente. Ignorando.",
                     lancamento.Id);
                 return false;
             }
@@ -59,12 +72,21 @@ namespace RProg.FluxoCaixa.Worker.Services
                 _logger.LogInformation("Lançamento ID: {LancamentoId} processado com sucesso", lancamento.Id);
                 return true;
             }
+
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Erro ao processar lançamento ID: {LancamentoId}", lancamento.Id);
                 throw;
             }
-        }        public async Task AtualizarConsolidacaoDataAsync(DateTime data, CancellationToken cancellationToken)
+        }
+
+        /// <summary>
+        /// Atualiza forçadamente as consolidações para uma data específica.
+        /// </summary>
+        /// <param name="data">A data para a qual as consolidações serão atualizadas.</param>
+        /// <param name="cancellationToken">Um token para observar enquanto espera a tarefa ser completada.</param>
+        /// <returns>Um <see cref="Task"/> que representa a operação assíncrona.</returns>
+        public async Task AtualizarConsolidacaoDataAsync(DateTime data, CancellationToken cancellationToken)
         {
             _logger.LogInformation("Iniciando atualização forçada das consolidações para data: {Data}", data.Date);
 
@@ -73,6 +95,7 @@ namespace RProg.FluxoCaixa.Worker.Services
                 await _consolidadoRepository.RecalcularConsolidacoesDataAsync(data.Date, cancellationToken);
                 _logger.LogInformation("Consolidações da data {Data} atualizadas com sucesso", data.Date);
             }
+
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Erro ao atualizar consolidações da data: {Data}", data.Date);
@@ -96,6 +119,7 @@ namespace RProg.FluxoCaixa.Worker.Services
                 _logger.LogInformation("Limpeza de lançamentos processados concluída: {RegistrosRemovidos} registros removidos", registrosRemovidos);
                 return registrosRemovidos;
             }
+
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Erro ao limpar lançamentos processados antigos");
@@ -124,14 +148,17 @@ namespace RProg.FluxoCaixa.Worker.Services
 
             await _consolidadoRepository.SalvarConsolidadoAsync(consolidadoCategoria, cancellationToken);
 
-            _logger.LogDebug("Consolidação por categoria '{Categoria}' atualizada para data: {Data}", 
+            _logger.LogDebug("Consolidação por categoria '{Categoria}' atualizada para data: {Data}",
                 lancamento.Categoria, dataConsolidacao);
-        }        private static void AtualizarConsolidado(ConsolidadoDiario consolidado, LancamentoDto lancamento)
+        }
+
+        private static void AtualizarConsolidado(ConsolidadoDiario consolidado, LancamentoDto lancamento)
         {
             if (lancamento.IsCredito)
             {
                 consolidado.TotalCreditos += Math.Abs(lancamento.Valor);
             }
+
             else if (lancamento.IsDebito)
             {
                 // Débitos são armazenados como valores negativos (<=0)

@@ -36,12 +36,31 @@ namespace RProg.FluxoCaixa.Worker.Infrastructure.Data
         /// <summary>
         /// Obtém análise de tendências com campos calculados.
         /// </summary>
-        Task<IEnumerable<ConsolidadoDiario>> ObterTendenciasConsolidacaoAsync(DateTime dataInicio, DateTime dataFim, string? categoria = null, CancellationToken cancellationToken = default);
-
-        /// <summary>
+        Task<IEnumerable<ConsolidadoDiario>> ObterTendenciasConsolidacaoAsync(DateTime dataInicio, DateTime dataFim, string? categoria = null, CancellationToken cancellationToken = default);        /// <summary>
         /// Operação de manutenção para limpeza de dados antigos.
         /// </summary>
         Task<int> LimparRegistrosAntigosAsync(int diasParaManter = 30, CancellationToken cancellationToken = default);
+
+        // Métodos específicos para a API de consultas CQRS
+        /// <summary>
+        /// Obtém consolidados por período para API CQRS.
+        /// </summary>
+        Task<IEnumerable<ConsolidadoDiario>> ObterPorPeriodoAsync(DateTime dataInicial, DateTime dataFinal, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Obtém a última data de atualização do período para API CQRS.
+        /// </summary>
+        Task<DateTime?> ObterUltimaDataAtualizacaoAsync(DateTime dataInicial, DateTime dataFinal, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Obtém consolidados por período e categoria para API CQRS.
+        /// </summary>
+        Task<IEnumerable<ConsolidadoDiario>> ObterPorPeriodoECategoriaAsync(DateTime dataInicial, DateTime dataFinal, string categoria, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Obtém a última data de atualização por período e categoria para API CQRS.
+        /// </summary>
+        Task<DateTime?> ObterUltimaDataAtualizacaoPorCategoriaAsync(DateTime dataInicial, DateTime dataFinal, string categoria, CancellationToken cancellationToken = default);
         
         // Método de infraestrutura
         Task InicializarEstruturaBancoAsync();
