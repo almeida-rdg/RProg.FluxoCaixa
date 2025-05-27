@@ -19,8 +19,5 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\..\worker\RProg.FluxoCaixa.Worker\RProg.FluxoCaixa.Worker.csproj" />
-  </ItemGroup>
 
 </Project>

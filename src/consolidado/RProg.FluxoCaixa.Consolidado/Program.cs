@@ -2,7 +2,7 @@ using System.Data;
 using Microsoft.Data.SqlClient;
 using System.Reflection;
 using Serilog;
-using RProg.FluxoCaixa.Worker.Infrastructure.Data;
+using RProg.FluxoCaixa.Consolidado.Infrastructure.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 

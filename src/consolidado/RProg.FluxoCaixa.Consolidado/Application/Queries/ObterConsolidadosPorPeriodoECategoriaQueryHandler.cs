@@ -1,6 +1,6 @@
 using MediatR;
 using RProg.FluxoCaixa.Consolidado.Application.DTOs;
-using RProg.FluxoCaixa.Worker.Infrastructure.Data;
+using RProg.FluxoCaixa.Consolidado.Infrastructure.Data;
 
 namespace RProg.FluxoCaixa.Consolidado.Application.Queries
 {
