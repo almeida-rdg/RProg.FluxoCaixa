@@ -1,0 +1,93 @@
+@RProg.FluxoCaixa.Lancamentos_HostAddress = http://localhost:5050
+
+### Teste de Health Check
+GET {{RProg.FluxoCaixa.Lancamentos_HostAddress}}/health
+Accept: application/json
+
+### Registrar Lançamento Válido - Crédito
+POST {{RProg.FluxoCaixa.Lancamentos_HostAddress}}/api/lancamentos
+Content-Type: application/json
+
+{
+  "valor": 100.50,
+  "tipo": "Credito",
+  "data": "2025-05-26",
+  "categoria": "Vendas",
+  "descricao": "Venda de produto XYZ"
+}
+
+### Registrar Lançamento Válido - Débito
+POST {{RProg.FluxoCaixa.Lancamentos_HostAddress}}/api/lancamentos
+Content-Type: application/json
+
+{
+  "valor": -50.25,
+  "tipo": "Debito",
+  "data": "2025-05-26",
+  "categoria": "Despesas",
+  "descricao": "Compra de material"
+}
+
+### Teste de Validação - Valor Zero (deve falhar)
+POST {{RProg.FluxoCaixa.Lancamentos_HostAddress}}/api/lancamentos
+Content-Type: application/json
+
+{
+  "valor": 0,
+  "tipo": "Credito",
+  "data": "2025-05-26",
+  "categoria": "Teste",
+  "descricao": "Teste valor zero"
+}
+
+### Teste de Validação - Crédito com Valor Negativo (deve falhar)
+POST {{RProg.FluxoCaixa.Lancamentos_HostAddress}}/api/lancamentos
+Content-Type: application/json
+
+{
+  "valor": -100,
+  "tipo": "Credito",
+  "data": "2025-05-26",
+  "categoria": "Teste",
+  "descricao": "Teste crédito negativo"
+}
+
+### Teste de Validação - Débito com Valor Positivo (deve falhar)
+POST {{RProg.FluxoCaixa.Lancamentos_HostAddress}}/api/lancamentos
+Content-Type: application/json
+
+{
+  "valor": 100,
+  "tipo": "Debito",
+  "data": "2025-05-26",
+  "categoria": "Teste",
+  "descricao": "Teste débito positivo"
+}
+
+### Teste de Validação - Categoria Muito Curta (deve falhar)
+POST {{RProg.FluxoCaixa.Lancamentos_HostAddress}}/api/lancamentos
+Content-Type: application/json
+
+{
+  "valor": 100,
+  "tipo": "Credito",
+  "data": "2025-05-26",
+  "categoria": "AB",
+  "descricao": "Teste categoria curta"
+}
+
+### Teste de Validação - Descrição Muito Curta (deve falhar)
+POST {{RProg.FluxoCaixa.Lancamentos_HostAddress}}/api/lancamentos
+Content-Type: application/json
+
+{
+  "valor": 100,
+  "tipo": "Credito",
+  "data": "2025-05-26",
+  "categoria": "Teste",
+  "descricao": "AB"
+}
+
+### Obter Lançamentos por Data
+GET {{RProg.FluxoCaixa.Lancamentos_HostAddress}}/api/lancamentos/2025-05-26
+Accept: application/json

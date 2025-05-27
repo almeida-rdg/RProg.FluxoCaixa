@@ -1,0 +1,132 @@
+version: '3.9'
+
+networks:
+  proxy-net:
+    driver: bridge
+  lancamentos-net:
+    driver: bridge
+  consolidado-net:
+    driver: bridge
+  rabbitmq-net:
+    driver: bridge
+  db-net:
+    driver: bridge
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: fluxo-sqlserver
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=Your_password123
+      - MSSQL_PID=Express
+    ports:
+      - "1433:1433"
+    networks:
+      - db-net
+      - lancamentos-net
+      - consolidado-net
+    volumes:
+      - ./lancamentos/scripts/criar-banco.sql:/docker-entrypoint-initdb.d/criar-banco.sql
+    command: >
+      /bin/bash -c "
+      /opt/mssql/bin/sqlservr &
+
+      until /opt/mssql-tools18/bin/sqlcmd -l 1 -C -S localhost -U sa -P 'Your_password123' -Q 'SELECT 1' &> /dev/null; do
+        >&2 echo '>>>>>>>>>> SQL Server is unavailable - sleeping <<<<<<<<<<';
+        sleep 5;
+      done;
+      echo '>>>>>>>>>> SQL Server is ready - executing init script <<<<<<<<<<';
+      /opt/mssql-tools18/bin/sqlcmd -l 5 -C -S localhost -U sa -P 'Your_password123' -d master -i /docker-entrypoint-initdb.d/criar-banco.sql;
+      
+      sleep infinity;"
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: fluxo-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - rabbitmq-net
+      - lancamentos-net
+      - consolidado-net
+
+  lancamentos-api:
+    build:
+      context: ./lancamentos
+      dockerfile: Dockerfile
+    container_name: fluxo-lancamentos
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=FluxoCaixa;User=sa;Password=Your_password123;Trust Server Certificate=True;
+      - RabbitMQ__HostName=rabbitmq
+      - RabbitMQ__QueueName=lancamentos
+    depends_on:
+      - sqlserver
+      - rabbitmq
+    ports:
+      - "8080:8080"
+    networks:
+      - lancamentos-net
+      - db-net
+      - rabbitmq-net
+      - proxy-net
+
+  # consolidado-api:
+  #   build:
+  #     context: ./consolidado/RProg.FluxoCaixa.Consolidado
+  #     dockerfile: Dockerfile
+  #   container_name: fluxo-consolidado
+  #   environment:
+  #     - ASPNETCORE_ENVIRONMENT=Development
+  #     - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=FluxoCaixa;User=sa;Password=Your_password123;
+  #     - RabbitMQ__HostName=rabbitmq
+  #     - RabbitMQ__QueueName=lancamentos
+  #   depends_on:
+  #     - sqlserver
+  #     - rabbitmq
+  #   networks:
+  #     - consolidado-net
+  #     - db-net
+  #     - rabbitmq-net
+  #     - proxy-net
+
+  # worker:
+  #   build:
+  #     context: ./worker/RProg.FluxoCaixa.Worker
+  #     dockerfile: Dockerfile
+  #   container_name: fluxo-worker
+  #   environment:
+  #     - ASPNETCORE_ENVIRONMENT=Development
+  #     - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=FluxoCaixa;User=sa;Password=Your_password123;
+  #     - RabbitMQ__HostName=rabbitmq
+  #     - RabbitMQ__QueueName=lancamentos
+  #   depends_on:
+  #     - sqlserver
+  #     - rabbitmq
+  #   networks:
+  #     - db-net
+  #     - rabbitmq-net
+  #     - consolidado-net
+  #     - lancamentos-net
+
+  # proxy:
+  #   build:
+  #     context: ./proxy/RProg.FluxoCaixa.Proxy
+  #     dockerfile: Dockerfile
+  #   container_name: fluxo-proxy
+  #   environment:
+  #     - ASPNETCORE_ENVIRONMENT=Development
+  #   ports:
+  #     - "8080:80"
+  #     - "8443:443"
+  #   depends_on:
+  #     - lancamentos-api
+  #     - consolidado-api
+  #   networks:
+  #     - proxy-net
+
+# Restrições de acesso:
+# - Apenas o serviço proxy expõe portas externas.
+# - Todas as comunicações internas são feitas por redes privadas específicas.
