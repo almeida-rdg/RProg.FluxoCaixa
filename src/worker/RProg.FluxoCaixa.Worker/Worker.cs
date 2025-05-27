@@ -2,8 +2,7 @@ using RProg.FluxoCaixa.Worker.Domain.Services;
 using RProg.FluxoCaixa.Worker.Infrastructure.Services;
 
 namespace RProg.FluxoCaixa.Worker
-{
-    /// <summary>
+{    /// <summary>
     /// Serviço worker principal responsável pela consolidação de lançamentos.
     /// </summary>
     public class Worker : BackgroundService
@@ -12,6 +11,7 @@ namespace RProg.FluxoCaixa.Worker
         private readonly IRabbitMqService _rabbitMqService;
         private readonly IConsolidacaoService _consolidacaoService;
         private readonly IConfiguration _configuration;
+        private Timer? _timerLimpeza;
 
         public Worker(
             ILogger<Worker> logger,
@@ -23,15 +23,16 @@ namespace RProg.FluxoCaixa.Worker
             _rabbitMqService = rabbitMqService;
             _consolidacaoService = consolidacaoService;
             _configuration = configuration;
-        }
-
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+        }        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             _logger.LogInformation("Iniciando Worker de Consolidação de Fluxo de Caixa");
 
             try
             {
                 var prefixoFila = _configuration.GetValue<string>("RabbitMQ:PrefixoFila") ?? "lancamento";
+                
+                // Iniciar timer de limpeza periódica (executa a cada 24 horas)
+                IniciarTimerLimpezaPeriodica();
                 
                 await _rabbitMqService.IniciarEscutaAsync(
                     prefixoFila,
@@ -76,6 +77,7 @@ namespace RProg.FluxoCaixa.Worker
             }
             finally
             {
+                _timerLimpeza?.Dispose();
                 await _rabbitMqService.PararEscutaAsync();
                 _logger.LogInformation("Worker finalizado");
             }
@@ -104,9 +106,54 @@ namespace RProg.FluxoCaixa.Worker
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Erro ao processar lançamento {Id} da fila {Fila}", 
-                    lancamento.Id, nomeFila);
-                return false;
+                    lancamento.Id, nomeFila);                return false;
             }
+        }
+
+        /// <summary>
+        /// Inicia timer para limpeza periódica de lançamentos processados antigos.
+        /// </summary>
+        private void IniciarTimerLimpezaPeriodica()
+        {
+            var intervalHoras = _configuration.GetValue<int>("Worker:IntervalLimpezaHoras", 24);
+            var diasParaManter = _configuration.GetValue<int>("Worker:DiasManterLancamentos", 30);
+            
+            var intervalo = TimeSpan.FromHours(intervalHoras);
+            
+            _timerLimpeza = new Timer(
+                async _ => await ExecutarLimpezaPeriodicaAsync(diasParaManter),
+                null,
+                intervalo, // Primeiro disparo após o intervalo configurado
+                intervalo  // Intervalo entre execuções
+            );
+            
+            _logger.LogInformation("Timer de limpeza periódica configurado: Intervalo={IntervalHoras}h, DiasParaManter={DiasParaManter}", 
+                intervalHoras, diasParaManter);
+        }
+
+        /// <summary>
+        /// Executa a limpeza periódica de lançamentos processados antigos.
+        /// </summary>
+        private async Task ExecutarLimpezaPeriodicaAsync(int diasParaManter)
+        {
+            try
+            {
+                _logger.LogInformation("Executando limpeza periódica de lançamentos processados antigos");
+                
+                var registrosRemovidos = await _consolidacaoService.LimparLancamentosProcessadosAntigosAsync(diasParaManter);
+                
+                _logger.LogInformation("Limpeza periódica concluída: {RegistrosRemovidos} registros removidos", registrosRemovidos);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro durante limpeza periódica de lançamentos processados");
+            }
+        }
+
+        public override void Dispose()
+        {
+            _timerLimpeza?.Dispose();
+            base.Dispose();
         }
     }
 }

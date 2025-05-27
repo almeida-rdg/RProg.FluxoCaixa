@@ -65,9 +65,7 @@ namespace RProg.FluxoCaixa.Worker.Services
                 _logger.LogError(ex, "Erro ao processar lançamento ID: {LancamentoId}", lancamento.Id);
                 throw;
             }
-        }
-
-        public async Task AtualizarConsolidacaoDataAsync(DateTime data, CancellationToken cancellationToken)
+        }        public async Task AtualizarConsolidacaoDataAsync(DateTime data, CancellationToken cancellationToken)
         {
             _logger.LogInformation("Iniciando atualização forçada das consolidações para data: {Data}", data.Date);
 
@@ -79,6 +77,29 @@ namespace RProg.FluxoCaixa.Worker.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Erro ao atualizar consolidações da data: {Data}", data.Date);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Executa limpeza de lançamentos processados antigos.
+        /// </summary>
+        /// <param name="diasParaManter">Número de dias para manter os registros (padrão: 30)</param>
+        /// <param name="cancellationToken">Token de cancelamento</param>
+        /// <returns>Número de registros removidos</returns>
+        public async Task<int> LimparLancamentosProcessadosAntigosAsync(int diasParaManter = 30, CancellationToken cancellationToken = default)
+        {
+            _logger.LogInformation("Iniciando limpeza de lançamentos processados antigos. Dias para manter: {DiasParaManter}", diasParaManter);
+
+            try
+            {
+                var registrosRemovidos = await _consolidadoRepository.LimparLancamentosProcessadosAntigosAsync(diasParaManter, cancellationToken);
+                _logger.LogInformation("Limpeza de lançamentos processados concluída: {RegistrosRemovidos} registros removidos", registrosRemovidos);
+                return registrosRemovidos;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao limpar lançamentos processados antigos");
                 throw;
             }
         }
@@ -106,9 +127,7 @@ namespace RProg.FluxoCaixa.Worker.Services
 
             _logger.LogDebug("Consolidação por categoria '{Categoria}' atualizada para data: {Data}", 
                 lancamento.Categoria, dataConsolidacao);
-        }
-
-        private static void AtualizarConsolidado(ConsolidadoDiario consolidado, LancamentoDto lancamento)
+        }        private static void AtualizarConsolidado(ConsolidadoDiario consolidado, LancamentoDto lancamento)
         {
             if (lancamento.IsCredito)
             {
@@ -116,12 +135,19 @@ namespace RProg.FluxoCaixa.Worker.Services
             }
             else if (lancamento.IsDebito)
             {
-                consolidado.TotalDebitos += Math.Abs(lancamento.Valor);
+                // Débitos são armazenados como valores negativos (<=0)
+                consolidado.TotalDebitos -= Math.Abs(lancamento.Valor);
             }
 
             consolidado.QuantidadeLancamentos++;
-            consolidado.DataAtualizacao = DateTime.UtcNow;
-            consolidado.RecalcularSaldo();
+            consolidado.AtualizarDataModificacao();
+
+            // Validar se os valores estão corretos após a atualização
+            if (!consolidado.ValidarValores())
+            {
+                throw new InvalidOperationException(
+                    $"Valores inválidos após consolidação: Créditos={consolidado.TotalCreditos}, Débitos={consolidado.TotalDebitos}");
+            }
         }
     }
 }

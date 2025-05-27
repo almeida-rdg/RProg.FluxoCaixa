@@ -37,14 +37,48 @@ namespace RProg.FluxoCaixa.Worker.Infrastructure.Data
         /// <param name="categoria">Categoria (null para consolidação geral)</param>
         /// <param name="cancellationToken">Token de cancelamento</param>
         /// <returns>Consolidação encontrada ou null</returns>
-        Task<ConsolidadoDiario?> ObterPorDataECategoriaAsync(DateTime data, string? categoria, CancellationToken cancellationToken);
-
-        /// <summary>
+        Task<ConsolidadoDiario?> ObterPorDataECategoriaAsync(DateTime data, string? categoria, CancellationToken cancellationToken);        /// <summary>
         /// Lista todas as consolidações de uma data.
         /// </summary>
         /// <param name="data">Data das consolidações</param>
         /// <param name="cancellationToken">Token de cancelamento</param>
         /// <returns>Lista de consolidações</returns>
         Task<IEnumerable<ConsolidadoDiario>> ListarPorDataAsync(DateTime data, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Obtém consolidação geral por período usando stored procedure otimizada.
+        /// </summary>
+        /// <param name="dataInicio">Data inicial do período</param>
+        /// <param name="dataFim">Data final do período</param>
+        /// <param name="cancellationToken">Token de cancelamento</param>
+        /// <returns>Lista de consolidações gerais do período</returns>
+        Task<IEnumerable<ConsolidadoDiario>> ObterConsolidacaoGeralPorPeriodoAsync(DateTime dataInicio, DateTime dataFim, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Obtém consolidação por categoria e período usando stored procedure otimizada.
+        /// </summary>
+        /// <param name="dataInicio">Data inicial do período</param>
+        /// <param name="dataFim">Data final do período</param>
+        /// <param name="categoria">Categoria específica (null para todas as categorias)</param>
+        /// <param name="cancellationToken">Token de cancelamento</param>
+        /// <returns>Lista de consolidações por categoria do período</returns>
+        Task<IEnumerable<ConsolidadoDiario>> ObterConsolidacaoPorCategoriaPeriodoAsync(DateTime dataInicio, DateTime dataFim, string? categoria, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Obtém relatório completo de consolidação usando stored procedure otimizada.
+        /// </summary>
+        /// <param name="dataInicio">Data inicial do período</param>
+        /// <param name="dataFim">Data final do período</param>
+        /// <param name="cancellationToken">Token de cancelamento</param>
+        /// <returns>Lista completa de consolidações (geral + categorias) do período</returns>
+        Task<IEnumerable<ConsolidadoDiario>> ObterRelatorioCompletoConsolidacaoAsync(DateTime dataInicio, DateTime dataFim, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Executa limpeza de lançamentos processados antigos usando stored procedure otimizada.
+        /// </summary>
+        /// <param name="diasParaManter">Número de dias para manter os registros</param>
+        /// <param name="cancellationToken">Token de cancelamento</param>
+        /// <returns>Número de registros removidos</returns>
+        Task<int> LimparLancamentosProcessadosAntigosAsync(int diasParaManter, CancellationToken cancellationToken);
     }
 }

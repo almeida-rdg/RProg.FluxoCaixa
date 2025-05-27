@@ -17,13 +17,11 @@ namespace RProg.FluxoCaixa.Worker.Infrastructure.Data
         {
             _connection = connection;
             _logger = logger;
-        }
-
-        public async Task<ConsolidadoDiario?> ObterPorDataECategoriaAsync(DateTime data, string? categoria)
+        }        public async Task<ConsolidadoDiario?> ObterPorDataECategoriaAsync(DateTime data, string? categoria)
         {
             const string sql = @"
-                SELECT Id, Data, Categoria, TotalCreditos, TotalDebitos, SaldoFinal, 
-                       QuantidadeLancamentos, DataProcessamento, DataAtualizacao
+                SELECT Id, Data, Categoria, TotalCreditos, TotalDebitos, SaldoLiquido, 
+                       QuantidadeLancamentos, DataCriacao, DataAtualizacao
                 FROM ConsolidadoDiario 
                 WHERE CAST(Data AS DATE) = CAST(@Data AS DATE) 
                   AND (@Categoria IS NULL AND Categoria IS NULL OR Categoria = @Categoria)";
@@ -43,13 +41,11 @@ namespace RProg.FluxoCaixa.Worker.Infrastructure.Data
         public async Task<ConsolidadoDiario?> ObterConsolidacaoGeralPorDataAsync(DateTime data)
         {
             return await ObterPorDataECategoriaAsync(data, null);
-        }
-
-        public async Task<IEnumerable<ConsolidadoDiario>> ObterConsolidacoesPorCategoriaAsync(DateTime data)
+        }        public async Task<IEnumerable<ConsolidadoDiario>> ObterConsolidacoesPorCategoriaAsync(DateTime data)
         {
             const string sql = @"
-                SELECT Id, Data, Categoria, TotalCreditos, TotalDebitos, SaldoFinal, 
-                       QuantidadeLancamentos, DataProcessamento, DataAtualizacao
+                SELECT Id, Data, Categoria, TotalCreditos, TotalDebitos, SaldoLiquido, 
+                       QuantidadeLancamentos, DataCriacao, DataAtualizacao
                 FROM ConsolidadoDiario 
                 WHERE CAST(Data AS DATE) = CAST(@Data AS DATE) 
                   AND Categoria IS NOT NULL";
@@ -64,20 +60,18 @@ namespace RProg.FluxoCaixa.Worker.Infrastructure.Data
                 _logger.LogError(ex, "Erro ao obter consolidações por categoria para data {Data}", data);
                 throw;
             }
-        }
-
-        public async Task<int> InserirAsync(ConsolidadoDiario consolidado)
+        }        public async Task<int> InserirAsync(ConsolidadoDiario consolidado)
         {
             const string sql = @"
-                INSERT INTO ConsolidadoDiario (Data, Categoria, TotalCreditos, TotalDebitos, SaldoFinal, 
-                                               QuantidadeLancamentos, DataProcessamento, DataAtualizacao)
+                INSERT INTO ConsolidadoDiario (Data, Categoria, TotalCreditos, TotalDebitos, SaldoLiquido, 
+                                               QuantidadeLancamentos, DataCriacao, DataAtualizacao)
                 OUTPUT INSERTED.Id
-                VALUES (@Data, @Categoria, @TotalCreditos, @TotalDebitos, @SaldoFinal, 
-                        @QuantidadeLancamentos, @DataProcessamento, @DataAtualizacao)";
+                VALUES (@Data, @Categoria, @TotalCreditos, @TotalDebitos, @SaldoLiquido, 
+                        @QuantidadeLancamentos, @DataCriacao, @DataAtualizacao)";
 
             try
             {
-                consolidado.DataProcessamento = DateTime.UtcNow;
+                consolidado.DataCriacao = DateTime.UtcNow;
                 consolidado.DataAtualizacao = DateTime.UtcNow;
                 
                 var id = await _connection.QuerySingleAsync<int>(sql, consolidado);
@@ -94,15 +88,13 @@ namespace RProg.FluxoCaixa.Worker.Infrastructure.Data
                     consolidado.Data, consolidado.Categoria);
                 throw;
             }
-        }
-
-        public async Task AtualizarAsync(ConsolidadoDiario consolidado)
+        }        public async Task AtualizarAsync(ConsolidadoDiario consolidado)
         {
             const string sql = @"
                 UPDATE ConsolidadoDiario 
                 SET TotalCreditos = @TotalCreditos,
                     TotalDebitos = @TotalDebitos,
-                    SaldoFinal = @SaldoFinal,
+                    SaldoLiquido = @SaldoLiquido,
                     QuantidadeLancamentos = @QuantidadeLancamentos,
                     DataAtualizacao = @DataAtualizacao
                 WHERE Id = @Id";
@@ -110,7 +102,6 @@ namespace RProg.FluxoCaixa.Worker.Infrastructure.Data
             try
             {
                 consolidado.DataAtualizacao = DateTime.UtcNow;
-                consolidado.RecalcularSaldo();
                 
                 await _connection.ExecuteAsync(sql, consolidado);
                 

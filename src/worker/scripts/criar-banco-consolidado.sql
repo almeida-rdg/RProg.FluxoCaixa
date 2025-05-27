@@ -1,4 +1,4 @@
--- Script para criação do banco de dados consolidado
+-- Script para criação do banco de dados consolidado otimizado para máxima performance de leitura
 -- RProg.FluxoCaixa.Worker
 
 -- Criar banco de dados (caso não exista)
@@ -8,28 +8,40 @@ BEGIN
 END
 GO
 
+-- Configurações de banco para performance otimizada
+ALTER DATABASE RProg_FluxoCaixa_Consolidado SET RECOVERY SIMPLE;
+ALTER DATABASE RProg_FluxoCaixa_Consolidado SET AUTO_UPDATE_STATISTICS_ASYNC ON;
+ALTER DATABASE RProg_FluxoCaixa_Consolidado SET PAGE_VERIFY CHECKSUM;
+ALTER DATABASE RProg_FluxoCaixa_Consolidado SET AUTO_CREATE_STATISTICS ON;
+ALTER DATABASE RProg_FluxoCaixa_Consolidado SET AUTO_UPDATE_STATISTICS ON;
+GO
+
 USE RProg_FluxoCaixa_Consolidado;
 GO
 
--- Tabela para consolidações diárias
+-- Tabela para consolidações diárias otimizada para performance de leitura
 IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[ConsolidadoDiario]') AND type in (N'U'))
 BEGIN
     CREATE TABLE [dbo].[ConsolidadoDiario] (
-        [Id] INT IDENTITY(1,1) NOT NULL,
+        [Id] BIGINT IDENTITY(1,1) NOT NULL,
         [Data] DATE NOT NULL,
-        [Categoria] NVARCHAR(100) NULL,
+        [Categoria] NVARCHAR(100) NULL, -- NULL = consolidação geral
+        [TipoConsolidacao] AS (CASE WHEN [Categoria] IS NULL THEN 'GERAL' ELSE 'CATEGORIA' END) PERSISTED,
         [TotalCreditos] DECIMAL(18,2) NOT NULL DEFAULT 0,
         [TotalDebitos] DECIMAL(18,2) NOT NULL DEFAULT 0,
-        [SaldoLiquido] DECIMAL(18,2) NOT NULL DEFAULT 0,
+        [SaldoLiquido] AS ([TotalCreditos] - ABS([TotalDebitos])) PERSISTED,
         [QuantidadeLancamentos] INT NOT NULL DEFAULT 0,
         [DataCriacao] DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
         [DataAtualizacao] DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
         
-        CONSTRAINT [PK_ConsolidadoDiario] PRIMARY KEY CLUSTERED ([Id] ASC),
-        CONSTRAINT [UK_ConsolidadoDiario_Data_Categoria] UNIQUE NONCLUSTERED ([Data] ASC, [Categoria] ASC)
+        CONSTRAINT [PK_ConsolidadoDiario] PRIMARY KEY CLUSTERED ([Data] ASC, [TipoConsolidacao] ASC, [Categoria] ASC),
+        CONSTRAINT [UK_ConsolidadoDiario_Data_Categoria] UNIQUE NONCLUSTERED ([Data] ASC, [Categoria] ASC),
+        CONSTRAINT [CK_ConsolidadoDiario_Creditos] CHECK ([TotalCreditos] >= 0),
+        CONSTRAINT [CK_ConsolidadoDiario_Debitos] CHECK ([TotalDebitos] <= 0),
+        CONSTRAINT [CK_ConsolidadoDiario_Quantidade] CHECK ([QuantidadeLancamentos] >= 0)
     );
     
-    PRINT 'Tabela ConsolidadoDiario criada com sucesso.';
+    PRINT 'Tabela ConsolidadoDiario criada com sucesso com otimizações de performance.';
 END
 ELSE
 BEGIN
@@ -60,18 +72,51 @@ BEGIN
 END
 GO
 
--- Índices para otimização de consultas
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[ConsolidadoDiario]') AND name = N'IX_ConsolidadoDiario_Data')
+-- Índices especializados para máxima performance de leitura
+-- Índice filtrado para consultas de consolidação geral
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[ConsolidadoDiario]') AND name = N'IX_ConsolidadoDiario_Geral_Data')
 BEGIN
-    CREATE NONCLUSTERED INDEX [IX_ConsolidadoDiario_Data] ON [dbo].[ConsolidadoDiario] ([Data] ASC);
-    PRINT 'Índice IX_ConsolidadoDiario_Data criado com sucesso.';
+    CREATE NONCLUSTERED INDEX [IX_ConsolidadoDiario_Geral_Data] 
+    ON [dbo].[ConsolidadoDiario] ([Data] ASC) 
+    WHERE [TipoConsolidacao] = 'GERAL'
+    WITH (FILLFACTOR = 95, PAD_INDEX = ON, ONLINE = OFF);
+    
+    PRINT 'Índice IX_ConsolidadoDiario_Geral_Data criado com sucesso.';
 END
 GO
 
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[ConsolidadoDiario]') AND name = N'IX_ConsolidadoDiario_Categoria')
+-- Índice filtrado para consultas por categoria
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[ConsolidadoDiario]') AND name = N'IX_ConsolidadoDiario_Categoria_Data')
 BEGIN
-    CREATE NONCLUSTERED INDEX [IX_ConsolidadoDiario_Categoria] ON [dbo].[ConsolidadoDiario] ([Categoria] ASC);
-    PRINT 'Índice IX_ConsolidadoDiario_Categoria criado com sucesso.';
+    CREATE NONCLUSTERED INDEX [IX_ConsolidadoDiario_Categoria_Data] 
+    ON [dbo].[ConsolidadoDiario] ([Data] ASC, [Categoria] ASC) 
+    WHERE [TipoConsolidacao] = 'CATEGORIA'
+    WITH (FILLFACTOR = 95, PAD_INDEX = ON, ONLINE = OFF);
+    
+    PRINT 'Índice IX_ConsolidadoDiario_Categoria_Data criado com sucesso.';
+END
+GO
+
+-- Índice covering para relatórios completos
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[ConsolidadoDiario]') AND name = N'IX_ConsolidadoDiario_Relatorios')
+BEGIN
+    CREATE NONCLUSTERED INDEX [IX_ConsolidadoDiario_Relatorios] 
+    ON [dbo].[ConsolidadoDiario] ([Data] ASC, [TipoConsolidacao] ASC) 
+    INCLUDE ([Categoria], [TotalCreditos], [TotalDebitos], [SaldoLiquido], [QuantidadeLancamentos])
+    WITH (FILLFACTOR = 90, PAD_INDEX = ON, ONLINE = OFF);
+    
+    PRINT 'Índice IX_ConsolidadoDiario_Relatorios criado com sucesso.';
+END
+GO
+
+-- Índice para busca por período específico
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[ConsolidadoDiario]') AND name = N'IX_ConsolidadoDiario_Periodo')
+BEGIN
+    CREATE NONCLUSTERED INDEX [IX_ConsolidadoDiario_Periodo] 
+    ON [dbo].[ConsolidadoDiario] ([Data] ASC, [TipoConsolidacao] ASC, [Categoria] ASC)
+    WITH (FILLFACTOR = 95, PAD_INDEX = ON, ONLINE = OFF);
+    
+    PRINT 'Índice IX_ConsolidadoDiario_Periodo criado com sucesso.';
 END
 GO
 
@@ -106,6 +151,96 @@ BEGIN
     PRINT CONCAT('Limpeza concluída. Registros removidos: ', @RegistrosRemovidos);
     
     RETURN @RegistrosRemovidos;
+END
+GO
+
+-- Stored Procedure otimizada para consulta de consolidação geral por período
+IF EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[sp_ObterConsolidacaoGeralPorPeriodo]') AND type in (N'P', N'PC'))
+BEGIN
+    DROP PROCEDURE [dbo].[sp_ObterConsolidacaoGeralPorPeriodo];
+END
+GO
+
+CREATE PROCEDURE [dbo].[sp_ObterConsolidacaoGeralPorPeriodo]
+    @DataInicio DATE,
+    @DataFim DATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Utiliza índice filtrado IX_ConsolidadoDiario_Geral_Data para máxima performance
+    SELECT 
+        [Data],
+        [TotalCreditos],
+        [TotalDebitos],
+        [SaldoLiquido],
+        [QuantidadeLancamentos],
+        [DataAtualizacao]
+    FROM [dbo].[ConsolidadoDiario] WITH (INDEX(IX_ConsolidadoDiario_Geral_Data))
+    WHERE [Data] BETWEEN @DataInicio AND @DataFim
+      AND [TipoConsolidacao] = 'GERAL'
+    ORDER BY [Data] ASC;
+END
+GO
+
+-- Stored Procedure otimizada para consulta de consolidação por categoria e período
+IF EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[sp_ObterConsolidacaoPorCategoriaPeriodo]') AND type in (N'P', N'PC'))
+BEGIN
+    DROP PROCEDURE [dbo].[sp_ObterConsolidacaoPorCategoriaPeriodo];
+END
+GO
+
+CREATE PROCEDURE [dbo].[sp_ObterConsolidacaoPorCategoriaPeriodo]
+    @DataInicio DATE,
+    @DataFim DATE,
+    @Categoria NVARCHAR(100) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Utiliza índice filtrado IX_ConsolidadoDiario_Categoria_Data para máxima performance
+    SELECT 
+        [Data],
+        [Categoria],
+        [TotalCreditos],
+        [TotalDebitos],
+        [SaldoLiquido],
+        [QuantidadeLancamentos],
+        [DataAtualizacao]
+    FROM [dbo].[ConsolidadoDiario] WITH (INDEX(IX_ConsolidadoDiario_Categoria_Data))
+    WHERE [Data] BETWEEN @DataInicio AND @DataFim
+      AND [TipoConsolidacao] = 'CATEGORIA'
+      AND (@Categoria IS NULL OR [Categoria] = @Categoria)
+    ORDER BY [Data] ASC, [Categoria] ASC;
+END
+GO
+
+-- Stored Procedure para relatório completo (geral + categorias) otimizada
+IF EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[sp_ObterRelatorioCompletoConsolidacao]') AND type in (N'P', N'PC'))
+BEGIN
+    DROP PROCEDURE [dbo].[sp_ObterRelatorioCompletoConsolidacao];
+END
+GO
+
+CREATE PROCEDURE [dbo].[sp_ObterRelatorioCompletoConsolidacao]
+    @DataInicio DATE,
+    @DataFim DATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Utiliza índice covering IX_ConsolidadoDiario_Relatorios para máxima performance
+    SELECT 
+        [Data],
+        [TipoConsolidacao],
+        [Categoria],
+        [TotalCreditos],
+        [TotalDebitos],
+        [SaldoLiquido],
+        [QuantidadeLancamentos]
+    FROM [dbo].[ConsolidadoDiario] WITH (INDEX(IX_ConsolidadoDiario_Relatorios))
+    WHERE [Data] BETWEEN @DataInicio AND @DataFim
+    ORDER BY [Data] ASC, [TipoConsolidacao] ASC, [Categoria] ASC;
 END
 GO
 
