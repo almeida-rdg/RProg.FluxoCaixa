@@ -11,6 +11,8 @@ networks:
     driver: bridge
   db-net:
     driver: bridge
+  worker-net:
+    driver: bridge
 
 services:
   sqlserver:
@@ -26,8 +28,10 @@ services:
       - db-net
       - lancamentos-net
       - consolidado-net
+      - worker-net
     volumes:
-      - ./lancamentos/scripts/criar-banco.sql:/docker-entrypoint-initdb.d/criar-banco.sql
+      - ./lancamentos/scripts/criar-banco.sql:/docker-entrypoint-initdb.d/01-criar-banco.sql
+      - ./worker/scripts/criar-banco-consolidado.sql:/docker-entrypoint-initdb.d/02-criar-banco-consolidado.sql
     command: >
       /bin/bash -c "
       /opt/mssql/bin/sqlservr &
@@ -36,8 +40,9 @@ services:
         >&2 echo '>>>>>>>>>> SQL Server is unavailable - sleeping <<<<<<<<<<';
         sleep 5;
       done;
-      echo '>>>>>>>>>> SQL Server is ready - executing init script <<<<<<<<<<';
-      /opt/mssql-tools18/bin/sqlcmd -l 5 -C -S localhost -U sa -P 'Your_password123' -d master -i /docker-entrypoint-initdb.d/criar-banco.sql;
+      echo '>>>>>>>>>> SQL Server is ready - executing init scripts <<<<<<<<<<';
+      /opt/mssql-tools18/bin/sqlcmd -l 5 -C -S localhost -U sa -P 'Your_password123' -d master -i /docker-entrypoint-initdb.d/01-criar-banco.sql;
+      /opt/mssql-tools18/bin/sqlcmd -l 5 -C -S localhost -U sa -P 'Your_password123' -d master -i /docker-entrypoint-initdb.d/02-criar-banco-consolidado.sql;
       
       sleep infinity;"
 
@@ -51,7 +56,12 @@ services:
       - rabbitmq-net
       - lancamentos-net
       - consolidado-net
-
+      - worker-net
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
   lancamentos-api:
     build:
       context: ./lancamentos
@@ -61,7 +71,7 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=FluxoCaixa;User=sa;Password=Your_password123;Trust Server Certificate=True;
       - RabbitMQ__HostName=rabbitmq
-      - RabbitMQ__QueueName=lancamentos
+      - RabbitMQ__QueueName=lancamento.geral
     depends_on:
       - sqlserver
       - rabbitmq
@@ -72,7 +82,6 @@ services:
       - db-net
       - rabbitmq-net
       - proxy-net
-
   # consolidado-api:
   #   build:
   #     context: ./consolidado/RProg.FluxoCaixa.Consolidado
@@ -92,13 +101,40 @@ services:
   #     - rabbitmq-net
   #     - proxy-net
 
-  # worker:
-  #   build:
-  #     context: ./worker/RProg.FluxoCaixa.Worker
-  #     dockerfile: Dockerfile
-  #   container_name: fluxo-worker
-  #   environment:
-  #     - ASPNETCORE_ENVIRONMENT=Development
+  worker:
+    build:
+      context: .
+      dockerfile: ./worker/Dockerfile
+    container_name: fluxo-worker
+    environment:
+      - DOTNET_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=RProg_FluxoCaixa_Consolidado;User Id=sa;Password=Your_password123;TrustServerCertificate=true;MultipleActiveResultSets=true
+      - RabbitMQ__HostName=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__UserName=guest
+      - RabbitMQ__Password=guest
+      - RabbitMQ__VirtualHost=/
+      - RabbitMQ__PrefixoFila=lancamento
+      - RabbitMQ__Filas__0=lancamento.geral
+      - RabbitMQ__Filas__1=lancamento.prioritaria
+      - Serilog__MinimumLevel__Default=Information
+    depends_on:
+      - sqlserver
+      - rabbitmq
+    networks:
+      - worker-net
+      - db-net
+      - rabbitmq-net
+    volumes:
+      - worker_logs:/app/logs
+    restart: unless-stopped
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
   #     - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=FluxoCaixa;User=sa;Password=Your_password123;
   #     - RabbitMQ__HostName=rabbitmq
   #     - RabbitMQ__QueueName=lancamentos
@@ -130,3 +166,10 @@ services:
 # Restrições de acesso:
 # - Apenas o serviço proxy expõe portas externas.
 # - Todas as comunicações internas são feitas por redes privadas específicas.
+# - O worker processa mensagens em segundo plano sem exposição externa.
+
+volumes:
+  rabbitmq_data:
+    driver: local
+  worker_logs:
+    driver: local

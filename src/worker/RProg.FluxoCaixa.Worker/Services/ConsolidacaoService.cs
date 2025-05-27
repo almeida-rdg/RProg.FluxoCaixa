@@ -1,0 +1,127 @@
+using Microsoft.Extensions.Logging;
+using RProg.FluxoCaixa.Worker.Domain.DTOs;
+using RProg.FluxoCaixa.Worker.Domain.Entities;
+using RProg.FluxoCaixa.Worker.Domain.Services;
+using RProg.FluxoCaixa.Worker.Infrastructure.Data;
+
+namespace RProg.FluxoCaixa.Worker.Services
+{
+    /// <summary>
+    /// Serviço responsável pela consolidação diária de lançamentos.
+    /// Implementa lógica idempotente para evitar processamento duplicado.
+    /// </summary>
+    public class ConsolidacaoService : IConsolidacaoService
+    {
+        private readonly IConsolidadoRepository _consolidadoRepository;
+        private readonly ILancamentoProcessadoRepository _lancamentoProcessadoRepository;
+        private readonly ILogger<ConsolidacaoService> _logger;
+
+        public ConsolidacaoService(
+            IConsolidadoRepository consolidadoRepository,
+            ILancamentoProcessadoRepository lancamentoProcessadoRepository,
+            ILogger<ConsolidacaoService> logger)
+        {
+            _consolidadoRepository = consolidadoRepository;
+            _lancamentoProcessadoRepository = lancamentoProcessadoRepository;
+            _logger = logger;
+        }
+
+        public async Task<bool> ProcessarLancamentoAsync(LancamentoDto lancamento, CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("Iniciando processamento do lançamento ID: {LancamentoId}, Valor: {Valor}, Data: {Data}", 
+                lancamento.Id, lancamento.Valor, lancamento.Data);            // Verificar se o lançamento já foi processado (idempotência)
+            var jaProcessado = await _lancamentoProcessadoRepository
+                .JaFoiProcessadoAsync(lancamento.Id, cancellationToken);
+
+            if (jaProcessado)
+            {
+                _logger.LogInformation("Lançamento ID: {LancamentoId} já foi processado anteriormente. Ignorando.", 
+                    lancamento.Id);
+                return false;
+            }
+
+            try
+            {
+                var dataConsolidacao = lancamento.Data.Date;
+
+                // Processar consolidação geral
+                await ProcessarConsolidacaoGeralAsync(lancamento, dataConsolidacao, cancellationToken);
+
+                // Processar consolidação por categoria
+                if (!string.IsNullOrWhiteSpace(lancamento.Categoria))
+                {
+                    await ProcessarConsolidacaoPorCategoriaAsync(lancamento, dataConsolidacao, cancellationToken);
+                }
+
+                // Marcar como processado
+                await _lancamentoProcessadoRepository
+                    .MarcarComoProcessadoAsync(lancamento.Id, DateTime.UtcNow, cancellationToken);
+
+                _logger.LogInformation("Lançamento ID: {LancamentoId} processado com sucesso", lancamento.Id);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao processar lançamento ID: {LancamentoId}", lancamento.Id);
+                throw;
+            }
+        }
+
+        public async Task AtualizarConsolidacaoDataAsync(DateTime data, CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("Iniciando atualização forçada das consolidações para data: {Data}", data.Date);
+
+            try
+            {
+                await _consolidadoRepository.RecalcularConsolidacoesDataAsync(data.Date, cancellationToken);
+                _logger.LogInformation("Consolidações da data {Data} atualizadas com sucesso", data.Date);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao atualizar consolidações da data: {Data}", data.Date);
+                throw;
+            }
+        }
+
+        private async Task ProcessarConsolidacaoGeralAsync(LancamentoDto lancamento, DateTime dataConsolidacao, CancellationToken cancellationToken)
+        {
+            var consolidadoGeral = await _consolidadoRepository
+                .ObterOuCriarConsolidadoAsync(dataConsolidacao, null, cancellationToken);
+
+            AtualizarConsolidado(consolidadoGeral, lancamento);
+
+            await _consolidadoRepository.SalvarConsolidadoAsync(consolidadoGeral, cancellationToken);
+
+            _logger.LogDebug("Consolidação geral atualizada para data: {Data}", dataConsolidacao);
+        }
+
+        private async Task ProcessarConsolidacaoPorCategoriaAsync(LancamentoDto lancamento, DateTime dataConsolidacao, CancellationToken cancellationToken)
+        {
+            var consolidadoCategoria = await _consolidadoRepository
+                .ObterOuCriarConsolidadoAsync(dataConsolidacao, lancamento.Categoria, cancellationToken);
+
+            AtualizarConsolidado(consolidadoCategoria, lancamento);
+
+            await _consolidadoRepository.SalvarConsolidadoAsync(consolidadoCategoria, cancellationToken);
+
+            _logger.LogDebug("Consolidação por categoria '{Categoria}' atualizada para data: {Data}", 
+                lancamento.Categoria, dataConsolidacao);
+        }
+
+        private static void AtualizarConsolidado(ConsolidadoDiario consolidado, LancamentoDto lancamento)
+        {
+            if (lancamento.IsCredito)
+            {
+                consolidado.TotalCreditos += Math.Abs(lancamento.Valor);
+            }
+            else if (lancamento.IsDebito)
+            {
+                consolidado.TotalDebitos += Math.Abs(lancamento.Valor);
+            }
+
+            consolidado.QuantidadeLancamentos++;
+            consolidado.DataAtualizacao = DateTime.UtcNow;
+            consolidado.RecalcularSaldo();
+        }
+    }
+}
