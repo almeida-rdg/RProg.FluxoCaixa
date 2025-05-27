@@ -1,6 +1,4 @@
 using MediatR;
-using Microsoft.Extensions.Logging;
-using RProg.FluxoCaixa.Lancamentos.Application.Queries;
 using RProg.FluxoCaixa.Lancamentos.Domain.Entities;
 using RProg.FluxoCaixa.Lancamentos.Infrastructure.Data.Dapper;
 

@@ -1,12 +1,12 @@
 using System.Data;
 using Dapper;
-using Microsoft.Data.SqlClient;
 using RProg.FluxoCaixa.Worker.Domain.Entities;
 
 namespace RProg.FluxoCaixa.Worker.Infrastructure.Data
 {
     /// <summary>
-    /// Repositório de consolidação diária usando Dapper.
+    /// Repositório para acesso aos dados de consolidação diária usando views otimizadas.
+    /// Implementa padrões de Clean Architecture focando em regras de negócio testáveis.
     /// </summary>
     public class ConsolidadoDiarioRepository : IConsolidadoDiarioRepository
     {
@@ -17,7 +17,9 @@ namespace RProg.FluxoCaixa.Worker.Infrastructure.Data
         {
             _connection = connection;
             _logger = logger;
-        }        public async Task<ConsolidadoDiario?> ObterPorDataECategoriaAsync(DateTime data, string? categoria)
+        }
+
+        public async Task<ConsolidadoDiario?> ObterPorDataECategoriaAsync(DateTime data, string? categoria, CancellationToken cancellationToken = default)
         {
             const string sql = @"
                 SELECT Id, Data, Categoria, TotalCreditos, TotalDebitos, SaldoLiquido, 
@@ -28,20 +30,79 @@ namespace RProg.FluxoCaixa.Worker.Infrastructure.Data
 
             try
             {
-                var resultado = await _connection.QueryFirstOrDefaultAsync<ConsolidadoDiario>(sql, new { Data = data, Categoria = categoria });
+                var resultado = await _connection.QueryFirstOrDefaultAsync<ConsolidadoDiario>(sql,
+                    new { Data = data, Categoria = categoria });
                 return resultado;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao obter consolidação para data {Data} e categoria {Categoria}", data, categoria);
+                _logger.LogError(ex, "Erro ao obter consolidação para data {Data} e categoria {Categoria}",
+                    data, categoria);
                 throw;
             }
         }
 
-        public async Task<ConsolidadoDiario?> ObterConsolidacaoGeralPorDataAsync(DateTime data)
+        public async Task<int> InserirAsync(ConsolidadoDiario consolidado, CancellationToken cancellationToken = default)
         {
-            return await ObterPorDataECategoriaAsync(data, null);
-        }        public async Task<IEnumerable<ConsolidadoDiario>> ObterConsolidacoesPorCategoriaAsync(DateTime data)
+            const string sql = @"
+                INSERT INTO ConsolidadoDiario (Data, Categoria, TotalCreditos, TotalDebitos, SaldoLiquido,
+                                               QuantidadeLancamentos, DataCriacao, DataAtualizacao)
+                OUTPUT INSERTED.Id
+                VALUES (@Data, @Categoria, @TotalCreditos, @TotalDebitos, @SaldoLiquido,
+                        @QuantidadeLancamentos, @DataCriacao, @DataAtualizacao)";
+
+            try
+            {
+                consolidado.DataCriacao = DateTime.UtcNow;
+                consolidado.DataAtualizacao = DateTime.UtcNow;
+
+                var id = await _connection.QuerySingleAsync<int>(sql, consolidado);
+                consolidado.Id = id;
+
+                _logger.LogInformation("Consolidação inserida com sucesso. Id: {Id}, Data: {Data}, Categoria: {Categoria}",
+                    id, consolidado.Data, consolidado.Categoria ?? "GERAL");
+
+                return id;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao inserir consolidação para data {Data} e categoria {Categoria}",
+                    consolidado.Data, consolidado.Categoria);
+                throw;
+            }
+        }
+
+        public async Task AtualizarAsync(ConsolidadoDiario consolidado, CancellationToken cancellationToken = default)
+        {
+            const string sql = @"
+                UPDATE ConsolidadoDiario 
+                SET TotalCreditos = @TotalCreditos,
+                    TotalDebitos = @TotalDebitos,
+                    SaldoLiquido = @SaldoLiquido,
+                    QuantidadeLancamentos = @QuantidadeLancamentos,
+                    DataAtualizacao = @DataAtualizacao
+                WHERE Id = @Id";
+
+            try
+            {
+                consolidado.DataAtualizacao = DateTime.UtcNow;
+                await _connection.ExecuteAsync(sql, consolidado);
+                _logger.LogInformation("Consolidação atualizada com sucesso. Id: {Id}, Data: {Data}, Categoria: {Categoria}",
+                    consolidado.Id, consolidado.Data, consolidado.Categoria ?? "GERAL");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao atualizar consolidação. Id: {Id}", consolidado.Id);
+                throw;
+            }
+        }
+
+        public async Task<ConsolidadoDiario?> ObterConsolidacaoGeralPorDataAsync(DateTime data, CancellationToken cancellationToken = default)
+        {
+            return await ObterPorDataECategoriaAsync(data, null, cancellationToken);
+        }
+
+        public async Task<IEnumerable<ConsolidadoDiario>> ObterConsolidacoesPorCategoriaAsync(DateTime data, CancellationToken cancellationToken = default)
         {
             const string sql = @"
                 SELECT Id, Data, Categoria, TotalCreditos, TotalDebitos, SaldoLiquido, 
@@ -60,57 +121,132 @@ namespace RProg.FluxoCaixa.Worker.Infrastructure.Data
                 _logger.LogError(ex, "Erro ao obter consolidações por categoria para data {Data}", data);
                 throw;
             }
-        }        public async Task<int> InserirAsync(ConsolidadoDiario consolidado)
+        }
+
+        public async Task<IEnumerable<ConsolidadoDiario>> ObterConsolidacoesGeraisPorPeriodoAsync(DateTime dataInicio, DateTime dataFim, CancellationToken cancellationToken = default)
         {
             const string sql = @"
-                INSERT INTO ConsolidadoDiario (Data, Categoria, TotalCreditos, TotalDebitos, SaldoLiquido, 
-                                               QuantidadeLancamentos, DataCriacao, DataAtualizacao)
-                OUTPUT INSERTED.Id
-                VALUES (@Data, @Categoria, @TotalCreditos, @TotalDebitos, @SaldoLiquido, 
-                        @QuantidadeLancamentos, @DataCriacao, @DataAtualizacao)";
+                SELECT Data, TotalCreditos, TotalDebitos, SaldoLiquido, QuantidadeLancamentos, DataAtualizacao
+                FROM vw_ConsolidacaoGeral
+                WHERE Data BETWEEN @DataInicio AND @DataFim
+                ORDER BY Data ASC";
 
             try
             {
-                consolidado.DataCriacao = DateTime.UtcNow;
-                consolidado.DataAtualizacao = DateTime.UtcNow;
-                
-                var id = await _connection.QuerySingleAsync<int>(sql, consolidado);
-                consolidado.Id = id;
-                
-                _logger.LogInformation("Consolidação inserida com sucesso. Id: {Id}, Data: {Data}, Categoria: {Categoria}", 
-                    id, consolidado.Data, consolidado.Categoria ?? "GERAL");
-                
-                return id;
+                var resultado = await _connection.QueryAsync<ConsolidadoDiario>(sql,
+                    new { DataInicio = dataInicio, DataFim = dataFim });
+
+                _logger.LogInformation("Consulta de consolidação geral executada com sucesso. Período: {DataInicio} a {DataFim}, Registros: {Count}",
+                    dataInicio, dataFim, resultado.Count());
+
+                return resultado;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao inserir consolidação para data {Data} e categoria {Categoria}", 
-                    consolidado.Data, consolidado.Categoria);
+                _logger.LogError(ex, "Erro ao consultar consolidação geral. Período: {DataInicio} a {DataFim}",
+                    dataInicio, dataFim);
                 throw;
             }
-        }        public async Task AtualizarAsync(ConsolidadoDiario consolidado)
+        }
+
+        public async Task<IEnumerable<ConsolidadoDiario>> ObterConsolidacoesPorCategoriaPeriodoAsync(DateTime dataInicio, DateTime dataFim, string? categoria = null, CancellationToken cancellationToken = default)
         {
             const string sql = @"
-                UPDATE ConsolidadoDiario 
-                SET TotalCreditos = @TotalCreditos,
-                    TotalDebitos = @TotalDebitos,
-                    SaldoLiquido = @SaldoLiquido,
-                    QuantidadeLancamentos = @QuantidadeLancamentos,
-                    DataAtualizacao = @DataAtualizacao
-                WHERE Id = @Id";
+                SELECT Data, Categoria, TotalCreditos, TotalDebitos, SaldoLiquido, QuantidadeLancamentos, DataAtualizacao
+                FROM vw_ConsolidacaoPorCategoria
+                WHERE Data BETWEEN @DataInicio AND @DataFim
+                  AND (@Categoria IS NULL OR Categoria = @Categoria)
+                ORDER BY Data ASC, Categoria ASC";
 
             try
             {
-                consolidado.DataAtualizacao = DateTime.UtcNow;
-                
-                await _connection.ExecuteAsync(sql, consolidado);
-                
-                _logger.LogInformation("Consolidação atualizada com sucesso. Id: {Id}, Data: {Data}, Categoria: {Categoria}", 
-                    consolidado.Id, consolidado.Data, consolidado.Categoria ?? "GERAL");
+                var resultado = await _connection.QueryAsync<ConsolidadoDiario>(sql,
+                    new { DataInicio = dataInicio, DataFim = dataFim, Categoria = categoria });
+
+                _logger.LogInformation("Consulta de consolidação por categoria executada com sucesso. Período: {DataInicio} a {DataFim}, Categoria: {Categoria}, Registros: {Count}",
+                    dataInicio, dataFim, categoria ?? "TODAS", resultado.Count());
+
+                return resultado;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao atualizar consolidação. Id: {Id}", consolidado.Id);
+                _logger.LogError(ex, "Erro ao consultar consolidação por categoria. Período: {DataInicio} a {DataFim}, Categoria: {Categoria}",
+                    dataInicio, dataFim, categoria);
+                throw;
+            }
+        }
+
+        public async Task<IEnumerable<ConsolidadoDiario>> ObterRelatorioCompletoAsync(DateTime dataInicio, DateTime dataFim, CancellationToken cancellationToken = default)
+        {
+            const string sql = @"
+                SELECT Data, Categoria, TotalCreditos, TotalDebitos, SaldoLiquido, QuantidadeLancamentos
+                FROM vw_ResumoConsolidacao
+                WHERE Data BETWEEN @DataInicio AND @DataFim
+                ORDER BY Data ASC, CASE WHEN Categoria IS NULL THEN 0 ELSE 1 END, Categoria ASC";
+
+            try
+            {
+                var resultado = await _connection.QueryAsync<ConsolidadoDiario>(sql,
+                    new { DataInicio = dataInicio, DataFim = dataFim });
+
+                _logger.LogInformation("Relatório completo executado com sucesso. Período: {DataInicio} a {DataFim}, Registros: {Count}",
+                    dataInicio, dataFim, resultado.Count());
+
+                return resultado;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao gerar relatório completo. Período: {DataInicio} a {DataFim}",
+                    dataInicio, dataFim);
+                throw;
+            }
+        }
+
+        public async Task<IEnumerable<ConsolidadoDiario>> ObterTendenciasConsolidacaoAsync(DateTime dataInicio, DateTime dataFim, string? categoria = null, CancellationToken cancellationToken = default)
+        {
+            const string sql = @"
+                SELECT Data, Categoria, TotalCreditos, TotalDebitos, SaldoLiquido, QuantidadeLancamentos
+                FROM vw_TendenciasConsolidacao
+                WHERE Data BETWEEN @DataInicio AND @DataFim
+                  AND (@Categoria IS NULL OR Categoria = @Categoria)
+                ORDER BY Data ASC, Categoria ASC";
+
+            try
+            {
+                var resultado = await _connection.QueryAsync<ConsolidadoDiario>(sql,
+                    new { DataInicio = dataInicio, DataFim = dataFim, Categoria = categoria });
+
+                _logger.LogInformation("Análise de tendências executada com sucesso. Período: {DataInicio} a {DataFim}, Categoria: {Categoria}, Registros: {Count}",
+                    dataInicio, dataFim, categoria ?? "TODAS", resultado.Count());
+
+                return resultado;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao obter tendências. Período: {DataInicio} a {DataFim}, Categoria: {Categoria}",
+                    dataInicio, dataFim, categoria);
+                throw;
+            }
+        }
+
+        public async Task<int> LimparRegistrosAntigosAsync(int diasParaManter = 365, CancellationToken cancellationToken = default)
+        {
+            const string sql = @"
+                EXEC sp_LimparConsolidacoesAntigas @DiasParaManter = @DiasParaManter";
+
+            try
+            {
+                var registrosRemovidos = await _connection.QuerySingleAsync<int>(sql,
+                    new { DiasParaManter = diasParaManter });
+
+                _logger.LogInformation("Limpeza de registros antigos concluída. Registros removidos: {Count}",
+                    registrosRemovidos);
+
+                return registrosRemovidos;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao executar limpeza de registros antigos");
                 throw;
             }
         }
@@ -126,9 +262,9 @@ namespace RProg.FluxoCaixa.Worker.Infrastructure.Data
                         Categoria NVARCHAR(100) NULL,
                         TotalCreditos DECIMAL(18,2) NOT NULL DEFAULT 0,
                         TotalDebitos DECIMAL(18,2) NOT NULL DEFAULT 0,
-                        SaldoFinal DECIMAL(18,2) NOT NULL DEFAULT 0,
+                        SaldoLiquido DECIMAL(18,2) NOT NULL DEFAULT 0,
                         QuantidadeLancamentos INT NOT NULL DEFAULT 0,
-                        DataProcessamento DATETIME2 NOT NULL,
+                        DataCriacao DATETIME2 NOT NULL,
                         DataAtualizacao DATETIME2 NOT NULL,
                         CONSTRAINT UK_ConsolidadoDiario_Data_Categoria UNIQUE(Data, Categoria)
                     );

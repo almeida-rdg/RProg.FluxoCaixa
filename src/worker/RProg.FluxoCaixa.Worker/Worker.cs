@@ -2,7 +2,8 @@ using RProg.FluxoCaixa.Worker.Domain.Services;
 using RProg.FluxoCaixa.Worker.Infrastructure.Services;
 
 namespace RProg.FluxoCaixa.Worker
-{    /// <summary>
+{
+    /// <summary>
     /// Serviço worker principal responsável pela consolidação de lançamentos.
     /// </summary>
     public class Worker : BackgroundService
@@ -23,48 +24,21 @@ namespace RProg.FluxoCaixa.Worker
             _rabbitMqService = rabbitMqService;
             _consolidacaoService = consolidacaoService;
             _configuration = configuration;
-        }        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+        }
+
+        /// <summary>
+        /// Executa o ciclo principal do worker, incluindo reconexão automática e escuta da fila.
+        /// </summary>
+        /// <param name="stoppingToken">Token de cancelamento.</param>
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             _logger.LogInformation("Iniciando Worker de Consolidação de Fluxo de Caixa");
 
             try
             {
-                var prefixoFila = _configuration.GetValue<string>("RabbitMQ:PrefixoFila") ?? "lancamento";
-                
-                // Iniciar timer de limpeza periódica (executa a cada 24 horas)
                 IniciarTimerLimpezaPeriodica();
-                
-                await _rabbitMqService.IniciarEscutaAsync(
-                    prefixoFila,
-                    ProcessarMensagemAsync,
-                    stoppingToken);
 
-                _logger.LogInformation("Worker iniciado com sucesso. Aguardando mensagens...");
-
-                // Manter o worker vivo
-                while (!stoppingToken.IsCancellationRequested)
-                {
-                    // Verificar se a conexão está ativa
-                    if (!_rabbitMqService.EstaConectado)
-                    {
-                        _logger.LogWarning("Conexão RabbitMQ perdida. Tentando reconectar...");
-                        try
-                        {
-                            await _rabbitMqService.ReconectarAsync();
-                            await _rabbitMqService.IniciarEscutaAsync(
-                                prefixoFila,
-                                ProcessarMensagemAsync,
-                                stoppingToken);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "Falha na reconexão. Tentando novamente em 30 segundos...");
-                            await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
-                        }
-                    }
-
-                    await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
-                }
+                await IniciarEscutaComReconexaoAsync(stoppingToken);
             }
             catch (OperationCanceledException)
             {
@@ -83,15 +57,60 @@ namespace RProg.FluxoCaixa.Worker
             }
         }
 
+        /// <summary>
+        /// Inicia a escuta da fila e gerencia reconexões automáticas.
+        /// </summary>
+        /// <param name="stoppingToken">Token de cancelamento.</param>
+        private async Task IniciarEscutaComReconexaoAsync(CancellationToken stoppingToken)
+        {
+            await _rabbitMqService.IniciarEscutaAsync(ProcessarMensagemAsync, stoppingToken);
+
+            _logger.LogInformation("Worker iniciado com sucesso. Aguardando mensagens...");
+
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                if (!_rabbitMqService.EstaConectado)
+                {
+                    _logger.LogWarning("Conexão RabbitMQ perdida. Tentando reconectar...");
+                    await TentarReconectarAsync(stoppingToken);
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+            }
+        }
+
+        /// <summary>
+        /// Tenta reconectar ao RabbitMQ e reiniciar a escuta.
+        /// </summary>
+        /// <param name="stoppingToken">Token de cancelamento.</param>
+        private async Task TentarReconectarAsync(CancellationToken stoppingToken)
+        {
+            try
+            {
+                await _rabbitMqService.ReconectarAsync();
+                await _rabbitMqService.IniciarEscutaAsync(ProcessarMensagemAsync, stoppingToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao tentar reconectar ao RabbitMQ");
+            }
+        }
+
+        /// <summary>
+        /// Processa uma mensagem recebida da fila.
+        /// </summary>
+        /// <param name="lancamento">Lançamento recebido.</param>
+        /// <param name="nomeFila">Nome da fila.</param>
+        /// <returns>True se processado com sucesso, false caso contrário.</returns>
         private async Task<bool> ProcessarMensagemAsync(Domain.DTOs.LancamentoDto lancamento, string nomeFila)
         {
             try
             {
-                _logger.LogDebug("Processando lançamento da fila {Fila}: ID={Id}, Valor={Valor}", 
+                _logger.LogDebug("Processando lançamento da fila {Fila}: ID={Id}, Valor={Valor}",
                     nomeFila, lancamento.Id, lancamento.Valor);
 
                 var resultado = await _consolidacaoService.ProcessarLancamentoAsync(lancamento, CancellationToken.None);
-                
+
                 if (resultado)
                 {
                     _logger.LogInformation("Lançamento {Id} processado com sucesso", lancamento.Id);
@@ -105,8 +124,9 @@ namespace RProg.FluxoCaixa.Worker
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao processar lançamento {Id} da fila {Fila}", 
-                    lancamento.Id, nomeFila);                return false;
+                _logger.LogError(ex, "Erro ao processar lançamento {Id} da fila {Fila}",
+                    lancamento.Id, nomeFila);
+                return false;
             }
         }
 
@@ -117,31 +137,32 @@ namespace RProg.FluxoCaixa.Worker
         {
             var intervalHoras = _configuration.GetValue<int>("Worker:IntervalLimpezaHoras", 24);
             var diasParaManter = _configuration.GetValue<int>("Worker:DiasManterLancamentos", 30);
-            
+
             var intervalo = TimeSpan.FromHours(intervalHoras);
-            
+
             _timerLimpeza = new Timer(
                 async _ => await ExecutarLimpezaPeriodicaAsync(diasParaManter),
                 null,
-                intervalo, // Primeiro disparo após o intervalo configurado
-                intervalo  // Intervalo entre execuções
+                intervalo,
+                intervalo
             );
-            
-            _logger.LogInformation("Timer de limpeza periódica configurado: Intervalo={IntervalHoras}h, DiasParaManter={DiasParaManter}", 
+
+            _logger.LogInformation("Timer de limpeza periódica configurado: Intervalo={IntervalHoras}h, DiasParaManter={DiasParaManter}",
                 intervalHoras, diasParaManter);
         }
 
         /// <summary>
         /// Executa a limpeza periódica de lançamentos processados antigos.
         /// </summary>
+        /// <param name="diasParaManter">Quantidade de dias para manter os lançamentos.</param>
         private async Task ExecutarLimpezaPeriodicaAsync(int diasParaManter)
         {
             try
             {
                 _logger.LogInformation("Executando limpeza periódica de lançamentos processados antigos");
-                
+
                 var registrosRemovidos = await _consolidacaoService.LimparLancamentosProcessadosAntigosAsync(diasParaManter);
-                
+
                 _logger.LogInformation("Limpeza periódica concluída: {RegistrosRemovidos} registros removidos", registrosRemovidos);
             }
             catch (Exception ex)
@@ -150,6 +171,9 @@ namespace RProg.FluxoCaixa.Worker
             }
         }
 
+        /// <summary>
+        /// Libera recursos utilizados pelo worker.
+        /// </summary>
         public override void Dispose()
         {
             _timerLimpeza?.Dispose();

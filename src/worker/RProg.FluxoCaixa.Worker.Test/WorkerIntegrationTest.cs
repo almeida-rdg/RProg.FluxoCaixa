@@ -1,8 +1,4 @@
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using RProg.FluxoCaixa.Worker.Domain.DTOs;
-using RProg.FluxoCaixa.Worker.Domain.Services;
 using System.Text.Json;
 
 namespace RProg.FluxoCaixa.Worker.Test

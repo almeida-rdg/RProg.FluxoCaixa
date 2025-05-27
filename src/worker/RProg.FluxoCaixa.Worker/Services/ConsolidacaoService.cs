@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Logging;
 using RProg.FluxoCaixa.Worker.Domain.DTOs;
 using RProg.FluxoCaixa.Worker.Domain.Entities;
 using RProg.FluxoCaixa.Worker.Domain.Services;

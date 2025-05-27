@@ -4,10 +4,8 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using RProg.FluxoCaixa.Lancamentos.Domain.Exceptions;
 using RProg.FluxoCaixa.Lancamentos.Infrastructure.Middleware;
-using System.IO;
 using System.Net;
 using System.Text.Json;
-using Xunit;
 
 namespace RProg.FluxoCaixa.Lancamentos.Test.Infrastructure.Middleware
 {

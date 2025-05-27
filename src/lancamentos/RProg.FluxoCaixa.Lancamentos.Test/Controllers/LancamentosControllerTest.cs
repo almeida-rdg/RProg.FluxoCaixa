@@ -7,7 +7,6 @@ using RProg.FluxoCaixa.Lancamentos.Application.Commands;
 using RProg.FluxoCaixa.Lancamentos.Application.Queries;
 using RProg.FluxoCaixa.Lancamentos.Controllers;
 using RProg.FluxoCaixa.Lancamentos.Domain.Entities;
-using Xunit;
 
 namespace RProg.FluxoCaixa.Lancamentos.Test.Controllers
 {

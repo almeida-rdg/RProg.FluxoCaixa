@@ -4,20 +4,19 @@ namespace RProg.FluxoCaixa.Worker.Infrastructure.Services
 {
     /// <summary>
     /// Interface para serviço de consumo de mensagens RabbitMQ.
-    /// Suporta múltiplas filas com prefixo 'lancamento'.
+    /// Suporta fila única configurável via appsettings.
     /// </summary>
     public interface IRabbitMqService
     {
         /// <summary>
-        /// Inicia a escuta das filas RabbitMQ.
+        /// Inicia a escuta da fila RabbitMQ.
         /// </summary>
-        /// <param name="prefixoFila">Prefixo das filas a serem monitoradas</param>
         /// <param name="onMessageReceived">Callback para processamento das mensagens</param>
         /// <param name="cancellationToken">Token de cancelamento</param>
-        Task IniciarEscutaAsync(string prefixoFila, Func<LancamentoDto, string, Task<bool>> onMessageReceived, CancellationToken cancellationToken);
+        Task IniciarEscutaAsync(Func<LancamentoDto, string, Task<bool>> onMessageReceived, CancellationToken cancellationToken);
 
         /// <summary>
-        /// Para a escuta das filas RabbitMQ.
+        /// Para a escuta da fila RabbitMQ.
         /// </summary>
         Task PararEscutaAsync();
 

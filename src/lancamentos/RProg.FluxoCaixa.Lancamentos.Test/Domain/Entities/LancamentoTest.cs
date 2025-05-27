@@ -1,7 +1,6 @@
 using FluentAssertions;
 using RProg.FluxoCaixa.Lancamentos.Domain.Entities;
 using RProg.FluxoCaixa.Lancamentos.Domain.Exceptions;
-using Xunit;
 
 namespace RProg.FluxoCaixa.Lancamentos.Test.Domain.Entities
 {

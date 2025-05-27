@@ -1,5 +1,3 @@
-using System.Data;
-
 namespace RProg.FluxoCaixa.Lancamentos.Infrastructure.Data.Dapper
 {
     public interface IDatabaseConnection

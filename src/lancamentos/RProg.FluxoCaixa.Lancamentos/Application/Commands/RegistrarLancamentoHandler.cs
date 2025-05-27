@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Logging;
 using RProg.FluxoCaixa.Lancamentos.Domain.Entities;
 using RProg.FluxoCaixa.Lancamentos.Domain.Exceptions;
 using RProg.FluxoCaixa.Lancamentos.Infrastructure;

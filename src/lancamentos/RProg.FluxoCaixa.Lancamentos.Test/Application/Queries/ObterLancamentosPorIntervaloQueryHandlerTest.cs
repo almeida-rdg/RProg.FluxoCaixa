@@ -5,7 +5,6 @@ using RProg.FluxoCaixa.Lancamentos.Application.Queries;
 using RProg.FluxoCaixa.Lancamentos.Domain.Entities;
 using RProg.FluxoCaixa.Lancamentos.Domain.Exceptions;
 using RProg.FluxoCaixa.Lancamentos.Infrastructure.Data.Dapper;
-using Xunit;
 
 namespace RProg.FluxoCaixa.Lancamentos.Test.Application.Queries
 {

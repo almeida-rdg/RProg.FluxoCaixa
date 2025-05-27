@@ -1,5 +1,4 @@
 using RProg.FluxoCaixa.Worker;
-using RProg.FluxoCaixa.Worker.Domain.Services;
 using RProg.FluxoCaixa.Worker.Infrastructure.Data;
 using RProg.FluxoCaixa.Worker.Infrastructure.Services;
 using Serilog;

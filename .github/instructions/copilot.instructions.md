@@ -28,7 +28,7 @@ Coding standards, domain knowledge, and preferences that AI should follow.
 - Evite o uso de abreviações, exceto as mais comuns e amplamente reconhecidas.
 - As divisões lógicas dos projetos devem ser feitas em pastas ao invés de criar novos projetos para cada divisão lógica.
 - O código deve ser separado em métodos com no máximo 30 linhas e coesos, evitando métodos grandes e complexos.
-- Sempre após fechamento de chaves, deve ter uma linha em branco.
+- Sempre após fechamento de chaves, deve ter uma linha em branco. Só não deve possuir a linha em branco se for o último fechamento de chave do arquivo ou se possuir outro fechamento de chave ou parêntese na sequência. Quando houver outro fechamento de chave ou parêntese na sequência, não deve haver linha em branco, mas o próximo fechamento deve estar na próxima linha.
 - Deve haver uma classe por arquivo, e o nome do arquivo deve ser o mesmo nome da classe.
 - Toda instrução após `;` deve iniciar na próxima linha.
 - Deve remover os `usings` desnecessários.
