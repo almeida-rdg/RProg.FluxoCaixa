@@ -1,0 +1,92 @@
+# Arquivos e diretórios a serem ignorados pelo Docker
+
+# Binários e builds
+**/bin/
+**/obj/
+**/out/
+**/target/
+
+# Dependências
+**/node_modules/
+**/packages/
+
+# Logs
+**/logs/
+**/*.log
+
+# Arquivos temporários
+**/.tmp/
+**/.temp/
+**/tmp/
+
+# Arquivos de IDE
+**/.vs/
+**/.vscode/
+**/.idea/
+**/*.swp
+**/*.swo
+**/*~
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Scripts de desenvolvimento
+dev.sh
+*.sh
+
+# Documentação
+README.md
+docs/
+
+# Arquivos de teste que não são necessários no container
+**/*.Test/
+**/TestResults/
+
+# Arquivos de configuração local
+appsettings.Development.json
+*.user
+*.suo
+
+# NuGet
+*.nupkg
+.nuget/
+
+# MSTest
+*.trx
+*.coverage
+*.coveragexml
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+
+# Visual Studio cache files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# ReSharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user

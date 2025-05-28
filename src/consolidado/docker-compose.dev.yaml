@@ -1,0 +1,66 @@
+version: '3.9'
+
+# Docker Compose para desenvolvimento - inclui apenas serviços necessários
+networks:
+  consolidado-dev-net:
+    driver: bridge
+  db-dev-net:
+    driver: bridge
+
+services:
+  sqlserver-dev:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: fluxo-sqlserver-dev
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=Dev_password123
+      - MSSQL_PID=Express
+    ports:
+      - "1434:1433"
+    networks:
+      - db-dev-net
+      - consolidado-dev-net
+    volumes:
+      - ./worker/scripts/criar-banco-consolidado.sql:/docker-entrypoint-initdb.d/criar-banco-consolidado.sql
+    command: >
+      /bin/bash -c "
+      /opt/mssql/bin/sqlservr &
+
+      until /opt/mssql-tools18/bin/sqlcmd -l 1 -C -S localhost -U sa -P 'Dev_password123' -Q 'SELECT 1' &> /dev/null; do
+        >&2 echo '>>>>>>>>>> SQL Server is unavailable - sleeping <<<<<<<<<<';
+        sleep 5;
+      done;
+      echo '>>>>>>>>>> SQL Server is ready - executing init scripts <<<<<<<<<<';
+      /opt/mssql-tools18/bin/sqlcmd -l 5 -C -S localhost -U sa -P 'Dev_password123' -d master -i /docker-entrypoint-initdb.d/criar-banco-consolidado.sql;
+      
+      sleep infinity;"
+
+  consolidado-api-dev:
+    build:
+      context: ./consolidado
+      dockerfile: Dockerfile
+    container_name: fluxo-consolidado-dev
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=sqlserver-dev;Database=RProg_FluxoCaixa_Consolidado;User=sa;Password=Dev_password123;Trust Server Certificate=True;
+      - Serilog__MinimumLevel__Default=Debug
+    depends_on:
+      - sqlserver-dev
+    ports:
+      - "8081:8080"
+    networks:
+      - consolidado-dev-net
+      - db-dev-net
+    volumes:
+      - consolidado_dev_logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  consolidado_dev_logs:
+    driver: local

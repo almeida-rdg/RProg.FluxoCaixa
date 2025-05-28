@@ -84,7 +84,8 @@ O projeto utiliza Serilog configurado para:
 
 ## Execução
 
-```bash
+### Desenvolvimento Local (.NET)
+```cmd
 # Compilar
 dotnet build
 
@@ -95,8 +96,42 @@ dotnet run
 dotnet test
 
 # Acessar Swagger
-# Navegue para https://localhost:7002/
+# Navegue para https://localhost:7002/swagger
 ```
+
+### Docker (Recomendado)
+
+#### Usando PowerShell (Windows)
+```powershell
+# Iniciar ambiente completo
+.\dev.ps1 start
+
+# Ver logs em tempo real
+.\dev.ps1 logs
+
+# Executar testes
+.\dev.ps1 test
+
+# Parar serviços
+.\dev.ps1 stop
+```
+
+#### Usando Docker Compose diretamente
+```cmd
+# Ambiente de desenvolvimento (isolado)
+docker-compose -f docker-compose.dev.yaml up --build
+
+# Ambiente completo (com outros serviços)
+cd ..\
+docker-compose up --build
+```
+
+**URLs Docker:**
+- API: http://localhost:8081
+- Swagger: http://localhost:8081/swagger  
+- Health Check: http://localhost:8081/health
+
+📋 **Documentação Docker detalhada:** [DOCKER.md](DOCKER.md)
 
 ## Arquitetura
 

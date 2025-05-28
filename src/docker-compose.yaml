@@ -81,24 +81,38 @@ services:
       - lancamentos-net
       - db-net
       - rabbitmq-net
-      - proxy-net
-  # consolidado-api:
-  #   build:
-  #     context: ./consolidado/RProg.FluxoCaixa.Consolidado
-  #     dockerfile: Dockerfile
-  #   container_name: fluxo-consolidado
-  #   environment:
-  #     - ASPNETCORE_ENVIRONMENT=Development
-  #     - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=FluxoCaixa;User=sa;Password=Your_password123;
-  #     - RabbitMQ__HostName=rabbitmq
-  #     - RabbitMQ__QueueName=lancamentos
-  #   depends_on:
-  #     - sqlserver
-  #     - rabbitmq
-  #   networks:
-  #     - consolidado-net
-  #     - db-net
-  #     - rabbitmq-net
+      - proxy-net  consolidado-api:
+    build:
+      context: ./consolidado
+      dockerfile: Dockerfile
+    container_name: fluxo-consolidado
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=RProg_FluxoCaixa_Consolidado;User=sa;Password=Your_password123;Trust Server Certificate=True;
+      - Serilog__MinimumLevel__Default=Information
+      - ASPNETCORE_URLS=http://+:8080
+    depends_on:
+      - sqlserver
+    ports:
+      - "8081:8080"
+    networks:
+      - consolidado-net
+      - db-net
+    volumes:
+      - consolidado_logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
   #     - proxy-net
 
   worker:
@@ -172,4 +186,6 @@ volumes:
   rabbitmq_data:
     driver: local
   worker_logs:
+    driver: local
+  consolidado_logs:
     driver: local

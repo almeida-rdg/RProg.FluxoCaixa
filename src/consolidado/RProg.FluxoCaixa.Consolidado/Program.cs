@@ -50,6 +50,10 @@ builder.Services.AddScoped<IDbConnection>(provider =>
 // Repositórios
 builder.Services.AddScoped<IConsolidadoDiarioRepository, ConsolidadoDiarioRepository>();
 
+// Configuração de Health Checks
+builder.Services.AddHealthChecks()
+    .AddSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")!, name: "database");
+
 // Configuração de CORS se necessário
 builder.Services.AddCors(options =>
 {
