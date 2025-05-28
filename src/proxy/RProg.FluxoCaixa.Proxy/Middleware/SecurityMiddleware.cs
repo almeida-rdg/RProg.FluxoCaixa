@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using AspNetCoreRateLimit;
 
 namespace RProg.FluxoCaixa.Proxy.Middleware;
 
@@ -11,15 +12,16 @@ public class SecurityMiddleware
     private readonly ILogger<SecurityMiddleware> _logger;
 
     // Padrões de ataques conhecidos
-    private readonly List<Regex> _padroesAtaques = new()
-    {
-        new Regex(@"(\<script\>|\<\/script\>)", RegexOptions.IgnoreCase | RegexOptions.Compiled),
-        new Regex(@"(union\s+select|drop\s+table|delete\s+from)", RegexOptions.IgnoreCase | RegexOptions.Compiled),
-        new Regex(@"(exec\s*\(|eval\s*\(|javascript:|vbscript:)", RegexOptions.IgnoreCase | RegexOptions.Compiled),
-        new Regex(@"(\.\./|\.\.\\)", RegexOptions.Compiled), // Path traversal
-        new Regex(@"(\%3C|\%3E|\%27|\%22)", RegexOptions.IgnoreCase | RegexOptions.Compiled), // URL encoded attacks
-        new Regex(@"(?i)\d+'\s*OR\s*'\d+'\s*=\s*'\d+'", RegexOptions.IgnoreCase | RegexOptions.Compiled) // SQL Injection
-    };
+    private readonly List<Regex> _padroesAtaques =
+    [
+        new (@"(\<script\>|\<\/script\>)", RegexOptions.IgnoreCase | RegexOptions.Compiled),
+        new (@"(union\s+select|drop\s+table|delete\s+from)", RegexOptions.IgnoreCase | RegexOptions.Compiled),
+        new (@"(exec\s*\(|eval\s*\(|javascript:|vbscript:)", RegexOptions.IgnoreCase | RegexOptions.Compiled),
+        new (@"(\.\./|\.\.\\)", RegexOptions.Compiled), // Path traversal
+        new (@"(\%3C|\%3E|\%27|\%22)", RegexOptions.IgnoreCase | RegexOptions.Compiled), // URL encoded attacks
+        new (@"(?i)\d+'\s*OR\s*'\d+'\s*=\s*'\d+'", RegexOptions.IgnoreCase | RegexOptions.Compiled), // SQL Injection
+        new (@"(?i)('(\s*(OR|AND)\s*)+.*(=|LIKE|IN|IS).*)|(UNION\s+SELECT)|(DROP\s+TABLE)|(INSERT\s+INTO)|(DELETE\s+FROM)|(UPDATE\s+.+\s+SET)", RegexOptions.IgnoreCase | RegexOptions.Compiled) // SQL Injection
+    ];
 
     // User agents suspeitos
     private readonly HashSet<string> _userAgentsSuspeitos = new()
@@ -108,7 +110,7 @@ public class SecurityMiddleware
         }
 
         // 3. Verifica padrões de ataque na URL
-        var url = contexto.Request.Path + contexto.Request.QueryString;
+        var url = contexto.Request.Path.Value + contexto.Request.QueryString.Value;
         foreach (var padrao in _padroesAtaques)
         {
             if (padrao.IsMatch(url))
