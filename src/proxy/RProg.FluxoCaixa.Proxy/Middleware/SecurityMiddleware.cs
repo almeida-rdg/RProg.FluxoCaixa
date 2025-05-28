@@ -17,7 +17,8 @@ public class SecurityMiddleware
         new Regex(@"(union\s+select|drop\s+table|delete\s+from)", RegexOptions.IgnoreCase | RegexOptions.Compiled),
         new Regex(@"(exec\s*\(|eval\s*\(|javascript:|vbscript:)", RegexOptions.IgnoreCase | RegexOptions.Compiled),
         new Regex(@"(\.\./|\.\.\\)", RegexOptions.Compiled), // Path traversal
-        new Regex(@"(\%3C|\%3E|\%27|\%22)", RegexOptions.IgnoreCase | RegexOptions.Compiled) // URL encoded attacks
+        new Regex(@"(\%3C|\%3E|\%27|\%22)", RegexOptions.IgnoreCase | RegexOptions.Compiled), // URL encoded attacks
+        new Regex(@"(?i)\d+'\s*OR\s*'\d+'\s*=\s*'\d+'", RegexOptions.IgnoreCase | RegexOptions.Compiled) // SQL Injection
     };
 
     // User agents suspeitos
@@ -61,30 +62,32 @@ public class SecurityMiddleware
             _logger.LogError(ex, "Erro no middleware de segurança");
             throw;
         }
-    }    private void AdicionarHeadersSeguranca(HttpContext contexto)
+    }
+
+    private void AdicionarHeadersSeguranca(HttpContext contexto)
     {
         var headers = contexto.Response.Headers;
 
         // Previne clickjacking
         headers["X-Frame-Options"] = "DENY";
-        
+
         // Previne MIME sniffing
         headers["X-Content-Type-Options"] = "nosniff";
-        
+
         // Ativa proteção XSS do navegador
         headers["X-XSS-Protection"] = "1; mode=block";
-        
+
         // Força HTTPS
         headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
-        
+
         // Content Security Policy básico
         headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'";
-        
+
         // Remove headers que revelam informações do servidor
         headers.Remove("Server");
         headers.Remove("X-Powered-By");
         headers.Remove("X-AspNet-Version");
-        
+
         // Adiciona header customizado
         headers["X-Security-Policy"] = "FluxoCaixa-Proxy-v1.0";
     }
@@ -112,7 +115,9 @@ public class SecurityMiddleware
             {
                 return new ResultadoValidacao(false, $"Padrão de ataque detectado na URL: {padrao}");
             }
-        }        // 4. Verifica headers suspeitos
+        }
+
+        // 4. Verifica headers suspeitos
         foreach (var header in contexto.Request.Headers)
         {
             var valor = string.Join(" ", header.Value.ToArray());
@@ -142,13 +147,6 @@ public class SecurityMiddleware
             }
         }
 
-        // 6. Verifica frequência de requisições por IP (básico)
-        var ip = ObterEnderecoIp(contexto);
-        if (await VerificarFrequenciaExcessiva(ip))
-        {
-            return new ResultadoValidacao(false, "Frequência excessiva de requisições");
-        }
-
         return new ResultadoValidacao(true, "Requisição válida");
     }
 
@@ -158,14 +156,6 @@ public class SecurityMiddleware
             ?? contexto.Request.Headers["X-Real-IP"].FirstOrDefault()
             ?? contexto.Connection.RemoteIpAddress?.ToString()
             ?? "unknown";
-    }
-
-    private async Task<bool> VerificarFrequenciaExcessiva(string ip)
-    {
-        // Esta verificação seria melhor implementada com Redis para clusters
-        // Por simplicidade, vamos considerar que o RateLimitingMiddleware já cuida disso
-        await Task.CompletedTask;
-        return false;
     }
 }
 

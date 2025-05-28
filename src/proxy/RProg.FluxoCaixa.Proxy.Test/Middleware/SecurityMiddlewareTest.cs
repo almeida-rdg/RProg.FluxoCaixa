@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Moq;
 using RProg.FluxoCaixa.Proxy.Middleware;
-using Xunit;
 using Microsoft.AspNetCore.Http;
 using System.Text;
 
@@ -52,7 +51,7 @@ public class SecurityMiddlewareTest
         // Arrange
         var middleware = new SecurityMiddleware(_mockNext.Object, _mockLogger.Object);
         var context = CriarHttpContext("GET", "/api/consolidado");
-        context.Request.Headers.Add("User-Agent", userAgent);
+        context.Request.Headers.Append("User-Agent", userAgent);
 
         // Act
         await middleware.InvokeAsync(context);
@@ -106,7 +105,7 @@ public class SecurityMiddlewareTest
         // Arrange
         var middleware = new SecurityMiddleware(_mockNext.Object, _mockLogger.Object);
         var context = CriarHttpContext("GET", "/api/test");
-        context.Request.Headers.Add(headerName, headerValue);
+        context.Request.Headers[headerName] = headerValue;
 
         // Act
         await middleware.InvokeAsync(context);
@@ -122,7 +121,7 @@ public class SecurityMiddlewareTest
         // Arrange
         var middleware = new SecurityMiddleware(_mockNext.Object, _mockLogger.Object);
         var context = CriarHttpContext("GET", "/api/consolidado");
-        context.Request.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+        context.Request.Headers.Append("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
 
         // Act
         await middleware.InvokeAsync(context);
@@ -158,8 +157,8 @@ public class SecurityMiddlewareTest
         var context = CriarHttpContext("GET", "/api/test");
         
         // Simula headers que deveriam ser removidos
-        context.Response.Headers.Add("Server", "Kestrel");
-        context.Response.Headers.Add("X-Powered-By", "ASP.NET");
+        context.Response.Headers.Append("Server", "Kestrel");
+        context.Response.Headers.Append("X-Powered-By", "ASP.NET");
 
         // Act
         await middleware.InvokeAsync(context);

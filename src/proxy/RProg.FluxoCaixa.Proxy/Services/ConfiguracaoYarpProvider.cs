@@ -1,5 +1,4 @@
 using Yarp.ReverseProxy.Configuration;
-using Yarp.ReverseProxy.Health;
 
 namespace RProg.FluxoCaixa.Proxy.Services;
 

@@ -60,6 +60,7 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
+      
   rabbitmq:
     image: rabbitmq:3.13-management
     container_name: fluxo-rabbitmq
@@ -138,7 +139,8 @@ services:
         window: 120s
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
-      interval: 30s      start_period: 60s
+      interval: 30s
+      start_period: 60s
 
   consolidado-api:
     build:
@@ -182,7 +184,8 @@ services:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
       interval: 30s
       timeout: 10s
-      retries: 3      start_period: 60s
+      retries: 3
+      start_period: 60s
 
   worker:
     build:
@@ -237,7 +240,8 @@ services:
       context: ./proxy/RProg.FluxoCaixa.Proxy
       dockerfile: Dockerfile
     container_name: fluxo-proxy
-    environment:      - ASPNETCORE_ENVIRONMENT=Production
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080;https://+:8443
       - DOCKER_HOST=unix:///var/run/docker.sock
       - Yarp__Clusters__Lancamentos__Destinations__destination1__Address=http://lancamentos-api:8080/

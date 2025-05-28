@@ -2,7 +2,6 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Moq;
 using RProg.FluxoCaixa.Proxy.Middleware;
-using Xunit;
 using Microsoft.AspNetCore.Http;
 using System.Text;
 

@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Moq;
 using RProg.FluxoCaixa.Proxy.Middleware;
-using Xunit;
 using Microsoft.AspNetCore.Http;
 using System.Net;
 
@@ -48,8 +47,9 @@ public class RateLimitingMiddlewareTest
         // Act - Faz muitas requisições rapidamente
         for (int i = 0; i < 15; i++) // Limite é 10 por segundo
         {
+            context = CriarHttpContext("192.168.1.1");
+            
             await middleware.InvokeAsync(context);
-            context = CriarHttpContext("192.168.1.1"); // Cria novo contexto para cada requisição
         }
 
         // Assert - A última requisição deve ser bloqueada
@@ -80,7 +80,7 @@ public class RateLimitingMiddlewareTest
         // Arrange
         var middleware = new RateLimitingMiddleware(_mockNext.Object, _mockLogger.Object);
         var context = CriarHttpContext("127.0.0.1");
-        context.Request.Headers.Add("X-Forwarded-For", "203.0.113.1");
+        context.Request.Headers.Append("X-Forwarded-For", "203.0.113.1");
 
         // Act
         await middleware.InvokeAsync(context);

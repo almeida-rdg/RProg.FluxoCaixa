@@ -36,10 +36,11 @@ public class RateLimitingMiddleware
         var infoRateLimit = _clientes.GetOrAdd(enderecoIp, _ => new RateLimitInfo());
 
         // Verifica se o cliente está bloqueado
-        if (infoRateLimit.EstaBloqueado && agora < infoRateLimit.BloqueadoAte)
+        if (infoRateLimit.EstaBloqueado && agora <= infoRateLimit.BloqueadoAte)
         {
             _logger.LogWarning("Cliente {EnderecoIp} bloqueado até {BloqueadoAte}", enderecoIp, infoRateLimit.BloqueadoAte);
             contexto.Response.StatusCode = (int)HttpStatusCode.TooManyRequests;
+            contexto.Response.Headers["Retry-After"] = new TimeSpan((agora - infoRateLimit.BloqueadoAte!.Value).Ticks).TotalSeconds.ToString();
             await contexto.Response.WriteAsync("Muitas requisições. Tente novamente mais tarde.");
             return;
         }
@@ -57,10 +58,9 @@ public class RateLimitingMiddleware
         // Verifica limite de requisições
         if (infoRateLimit.Requisicoes.Count >= _limitePorMinuto)
         {
-            // Bloqueia o cliente por 5 minutos
             infoRateLimit.EstaBloqueado = true;
             infoRateLimit.BloqueadoAte = agora.AddMinutes(5);
-            
+            _clientes.AddOrUpdate(enderecoIp, infoRateLimit, (key, existing) => infoRateLimit);
             _logger.LogWarning("Cliente {EnderecoIp} excedeu limite de requisições e foi bloqueado", enderecoIp);
             
             contexto.Response.StatusCode = (int)HttpStatusCode.TooManyRequests;
@@ -72,14 +72,21 @@ public class RateLimitingMiddleware
         var requisicoesUltimoSegundo = infoRateLimit.Requisicoes.Count(r => agora - r < TimeSpan.FromSeconds(1));
         if (requisicoesUltimoSegundo >= _limitePorSegundo)
         {
+            infoRateLimit.EstaBloqueado = true;
+            infoRateLimit.BloqueadoAte = agora.AddMinutes(5);
+            _clientes.AddOrUpdate(enderecoIp, infoRateLimit, (key, existing) => infoRateLimit);
+
             _logger.LogWarning("Cliente {EnderecoIp} excedeu limite de requisições por segundo", enderecoIp);
+
             contexto.Response.StatusCode = (int)HttpStatusCode.TooManyRequests;
             await contexto.Response.WriteAsync("Muitas requisições por segundo. Diminua a frequência.");
+
             return;
         }
 
         // Adiciona a requisição atual
-        infoRateLimit.Requisicoes.Add(agora);        // Adiciona headers informativos
+        infoRateLimit.Requisicoes.Add(agora); 
+        _clientes.AddOrUpdate(enderecoIp, infoRateLimit, (key, existing) => infoRateLimit);
         contexto.Response.Headers["X-RateLimit-Limit"] = _limitePorMinuto.ToString();
         contexto.Response.Headers["X-RateLimit-Remaining"] = Math.Max(0, _limitePorMinuto - infoRateLimit.Requisicoes.Count).ToString();
         contexto.Response.Headers["X-RateLimit-Reset"] = ((DateTimeOffset)agora.Add(_janelaTempo)).ToUnixTimeSeconds().ToString();

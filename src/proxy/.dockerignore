@@ -1,0 +1,110 @@
+# ==============================================================================
+# .dockerignore para RProg.FluxoCaixa.Proxy
+# ==============================================================================
+# 
+# Este arquivo exclui arquivos desnecessários do contexto de build do Docker
+# para melhorar performance e reduzir o tamanho do contexto de build.
+# ==============================================================================
+
+# Arquivos do Git
+.git/
+.gitignore
+.gitattributes
+
+# Arquivos de build e cache do .NET
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+**/Debug/
+**/Release/
+**/.dotnet/
+**/.nuget/
+
+# Arquivos de log e temporários
+**/logs/
+**/log/
+**/*.log
+**/*.tmp
+**/*.temp
+**/temp/
+**/.cache/
+
+# Arquivos de teste e coverage
+**/TestResults/
+**/coverage/
+**/*.coverage
+**/*.coveragexml
+
+# Documentação e arquivos README
+**/*.md
+!**/README.md
+**/docs/
+**/*.txt
+!**/requirements.txt
+
+# Arquivos de configuração IDE
+**/.idea/
+**/.rider/
+**/*.user
+**/*.suo
+**/*.sln.docstates
+
+# Arquivos do Docker (evitar recursão)
+**/Dockerfile*
+**/.dockerignore
+**/docker-compose*.yml
+**/docker-compose*.yaml
+
+# Arquivos de script e build
+**/*.sh
+**/*.bat
+**/*.ps1
+**/scripts/
+**/build*/
+
+# Arquivos de backup e temporários
+**/*~
+**/*.bak
+**/*.swp
+**/*.orig
+
+# Arquivos específicos do Node.js (se houver)
+**/node_modules/
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+
+# Arquivos de sistema
+**/.DS_Store
+**/Thumbs.db
+**/desktop.ini
+
+# Certificados e chaves (segurança)
+**/*.pfx
+**/*.p12
+**/*.key
+**/*.pem
+**/*.crt
+**/*.cer
+
+# Arquivos de dados e database
+**/*.db
+**/*.sqlite
+**/*.mdf
+**/*.ldf
+
+# Arquivos de ambiente local
+**/.env*
+**/appsettings.Local.json
+**/appsettings.Development.json
+
+# Resultados de análise de código
+**/CodeAnalysisLog.xml
+**/StyleCopReport.xml
+
+# Arquivos específicos do projeto (manter apenas o necessário)
+**/IMPLEMENTACAO_COMPLETA.md
+**/YARP_*.md
+**/DEPLOY.md
+**/build.log

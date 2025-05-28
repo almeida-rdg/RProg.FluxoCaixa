@@ -1,5 +1,3 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.Extensions.Caching.Memory;
 using RProg.FluxoCaixa.Proxy.Authentication;
 using RProg.FluxoCaixa.Proxy.Middleware;
 using RProg.FluxoCaixa.Proxy.Services;
