@@ -30,6 +30,7 @@ services:
       - consolidado-net
       - worker-net
     volumes:
+      - sqlserver_data:/var/opt/mssql
       - ./lancamentos/scripts/criar-banco.sql:/docker-entrypoint-initdb.d/01-criar-banco.sql
       - ./worker/scripts/criar-banco-consolidado.sql:/docker-entrypoint-initdb.d/02-criar-banco-consolidado.sql
     command: >
@@ -45,7 +46,20 @@ services:
       /opt/mssql-tools18/bin/sqlcmd -l 5 -C -S localhost -U sa -P 'Your_password123' -d master -i /docker-entrypoint-initdb.d/02-criar-banco-consolidado.sql;
       
       sleep infinity;"
-
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -l 1 -C -S localhost -U sa -P 'Your_password123' -Q 'SELECT 1' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
   rabbitmq:
     image: rabbitmq:3.13-management
     container_name: fluxo-rabbitmq
@@ -58,51 +72,194 @@ services:
       - consolidado-net
       - worker-net
     environment:
-      - RABBITMQ_DEFAULT_USER=guest
-      - RABBITMQ_DEFAULT_PASS=guest
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=admin123
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
   lancamentos-api:
     build:
       context: ./lancamentos
       dockerfile: Dockerfile
-    container_name: fluxo-lancamentos
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=FluxoCaixa;User=sa;Password=Your_password123;Trust Server Certificate=True;
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=FluxoCaixa;User=sa;Password=Your_password123;TrustServerCertificate=True
       - RabbitMQ__HostName=rabbitmq
-      - RabbitMQ__QueueName=lancamento.geral
+      - RabbitMQ__QueueName=lancamentos
+      - RabbitMQ__UserName=admin
+      - RabbitMQ__Password=admin123
     depends_on:
-      - sqlserver
-      - rabbitmq
-    ports:
-      - "8080:8080"
+      sqlserver:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - lancamentos-net
-      - db-net
       - rabbitmq-net
-      - proxy-net  consolidado-api:
+      - db-net
+    volumes:
+      - lancamentos_logs:/app/logs
+    restart: unless-stopped
+    deploy:
+      mode: replicated
+      replicas: 2
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+      update_config:
+        parallelism: 1
+        delay: 30s
+        order: start-first
+        failure_action: rollback
+        monitor: 60s
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 30s      start_period: 60s
+
+  consolidado-api:
     build:
       context: ./consolidado
       dockerfile: Dockerfile
-    container_name: fluxo-consolidado
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=RProg_FluxoCaixa_Consolidado;User=sa;Password=Your_password123;Trust Server Certificate=True;
-      - Serilog__MinimumLevel__Default=Information
       - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=FluxoCaixaConsolidado;User=sa;Password=Your_password123;TrustServerCertificate=True
     depends_on:
-      - sqlserver
-    ports:
-      - "8081:8080"
+      sqlserver:
+        condition: service_healthy
     networks:
       - consolidado-net
       - db-net
     volumes:
       - consolidado_logs:/app/logs
     restart: unless-stopped
+    deploy:
+      mode: replicated
+      replicas: 2
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+      update_config:
+        parallelism: 1
+        delay: 30s
+        order: start-first
+        failure_action: rollback
+        monitor: 60s
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3      start_period: 60s
+
+  worker:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    environment:
+      - DOTNET_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=FluxoCaixaConsolidado;User=sa;Password=Your_password123;TrustServerCertificate=True
+      - RabbitMQ__HostName=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__UserName=admin
+      - RabbitMQ__Password=admin123
+      - RabbitMQ__VirtualHost=/
+      - RabbitMQ__PrefixoFila=lancamentos
+      - RabbitMQ__QueueName=lancamentos
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - worker-net
+      - rabbitmq-net
+      - db-net
+    volumes:
+      - worker_logs:/app/logs
+    restart: unless-stopped
+    deploy:
+      mode: replicated
+      replicas: 1
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+    healthcheck:
+      test: ["CMD-SHELL", "ps aux | grep dotnet || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  proxy:
+    build:
+      context: ./proxy/RProg.FluxoCaixa.Proxy
+      dockerfile: Dockerfile
+    container_name: fluxo-proxy
+    environment:      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080;https://+:8443
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - Yarp__Clusters__Lancamentos__Destinations__destination1__Address=http://lancamentos-api:8080/
+      - Yarp__Clusters__Consolidado__Destinations__destination1__Address=http://consolidado-api:8080/
+    ports:
+      - "80:8080"
+      - "443:8443"
+    depends_on:
+      lancamentos-api:
+        condition: service_healthy
+      consolidado-api:
+        condition: service_healthy
+    networks:
+      - proxy-net
+      - lancamentos-net
+      - consolidado-net
+    volumes:
+      - proxy_logs:/app/logs
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -110,82 +267,44 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          cpus: '1.0'
+          memory: 1G
         reservations:
-          memory: 256M
-  #     - proxy-net
-
-  worker:
-    build:
-      context: .
-      dockerfile: ./worker/Dockerfile
-    container_name: fluxo-worker
-    environment:
-      - DOTNET_ENVIRONMENT=Production
-      - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=RProg_FluxoCaixa_Consolidado;User Id=sa;Password=Your_password123;TrustServerCertificate=true;MultipleActiveResultSets=true
-      - RabbitMQ__HostName=rabbitmq
-      - RabbitMQ__Port=5672
-      - RabbitMQ__UserName=guest
-      - RabbitMQ__Password=guest
-      - RabbitMQ__VirtualHost=/
-      - RabbitMQ__PrefixoFila=lancamento
-      - RabbitMQ__Filas__0=lancamento.geral
-      - RabbitMQ__Filas__1=lancamento.prioritaria
-      - Serilog__MinimumLevel__Default=Information
-    depends_on:
-      - sqlserver
-      - rabbitmq
-    networks:
-      - worker-net
-      - db-net
-      - rabbitmq-net
-    volumes:
-      - worker_logs:/app/logs
-    restart: unless-stopped
-    deploy:
-      replicas: 2
-      resources:
-        limits:
+          cpus: '0.5'
           memory: 512M
-        reservations:
-          memory: 256M
-  #     - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=FluxoCaixa;User=sa;Password=Your_password123;
-  #     - RabbitMQ__HostName=rabbitmq
-  #     - RabbitMQ__QueueName=lancamentos
-  #   depends_on:
-  #     - sqlserver
-  #     - rabbitmq
-  #   networks:
-  #     - db-net
-  #     - rabbitmq-net
-  #     - consolidado-net
-  #     - lancamentos-net
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
 
-  # proxy:
-  #   build:
-  #     context: ./proxy/RProg.FluxoCaixa.Proxy
-  #     dockerfile: Dockerfile
-  #   container_name: fluxo-proxy
-  #   environment:
-  #     - ASPNETCORE_ENVIRONMENT=Development
-  #   ports:
-  #     - "8080:80"
-  #     - "8443:443"
-  #   depends_on:
-  #     - lancamentos-api
-  #     - consolidado-api
-  #   networks:
-  #     - proxy-net
+# Configurações de escalabilidade automática
+# Para monitoramento de recursos e escalabilidade automática, usar:
+# 1. Docker Swarm mode para orchestração
+# 2. Prometheus + Grafana para métricas
+# 3. Scripts de auto-scaling baseados em CPU/Memória
 
-# Restrições de acesso:
-# - Apenas o serviço proxy expõe portas externas.
-# - Todas as comunicações internas são feitas por redes privadas específicas.
-# - O worker processa mensagens em segundo plano sem exposição externa.
+# Comandos para inicializar em modo swarm:
+# docker swarm init
+# docker stack deploy -c docker-compose.yaml fluxocaixa
+
+# Configurações de segurança:
+# - Apenas o proxy está exposto externamente (portas 80 e 443)
+# - Cada serviço tem sua própria rede + redes compartilhadas necessárias
+# - Banco e RabbitMQ são acessíveis apenas pelos serviços que precisam
+# - Health checks em todos os serviços para garantir disponibilidade
+# - Restart policies para recuperação automática de falhas
 
 volumes:
+  sqlserver_data:
+    driver: local
   rabbitmq_data:
+    driver: local
+  lancamentos_logs:
+    driver: local
+  consolidado_logs:
     driver: local
   worker_logs:
     driver: local
-  consolidado_logs:
+  proxy_logs:
     driver: local
