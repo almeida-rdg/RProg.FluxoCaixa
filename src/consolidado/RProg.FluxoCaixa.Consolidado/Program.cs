@@ -21,13 +21,13 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new() 
-    { 
-        Title = "RProg.FluxoCaixa.Consolidado API", 
+    c.SwaggerDoc("v1", new()
+    {
+        Title = "RProg.FluxoCaixa.Consolidado API",
         Version = "v1",
         Description = "API para consulta de dados consolidados por período e categoria usando padrão CQRS"
     });
-    
+
     // Incluir comentários XML
     var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
@@ -67,30 +67,26 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+app.UseHealthChecks("/api/health");
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "RProg.FluxoCaixa.Consolidado API v1");
-        c.RoutePrefix = string.Empty; // Define a página do Swagger como página inicial
+        c.RoutePrefix = string.Empty;
     });
 }
 
 app.UseHttpsRedirection();
 
-// Usar CORS se configurado
-if (app.Environment.IsDevelopment())
-{
-    app.UseCors("AllowAll");
-}
+app.UseCors("AllowAll");
 
 app.UseAuthorization();
 
 app.MapControllers();
 
-// Log de inicialização
 app.Logger.LogInformation("RProg.FluxoCaixa.Consolidado API iniciada em {Environment}", app.Environment.EnvironmentName);
 
 app.Run();

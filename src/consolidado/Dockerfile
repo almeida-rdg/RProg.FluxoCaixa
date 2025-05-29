@@ -39,7 +39,7 @@ USER appuser
 
 # Configurar variáveis de ambiente padrão
 ENV ASPNETCORE_URLS=http://+:8080
-ENV ASPNETCORE_ENVIRONMENT=Production
+ENV ASPNETCORE_ENVIRONMENT=Development
 
 # Health check para container
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \

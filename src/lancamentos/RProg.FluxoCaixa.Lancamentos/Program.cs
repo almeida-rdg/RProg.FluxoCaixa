@@ -6,6 +6,7 @@ using System.Data;
 using Microsoft.Data.SqlClient;
 using RProg.FluxoCaixa.Lancamentos.Infrastructure;
 using Serilog;
+using System.Reflection;
 
 // Configuração inicial do Serilog
 Log.Logger = new LoggerConfiguration()
@@ -27,7 +28,24 @@ try
 
     // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
     builder.Services.AddEndpointsApiExplorer();
-    builder.Services.AddSwaggerGen();    builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<RegistrarLancamentoHandler>());
+    builder.Services.AddSwaggerGen(c =>
+    {
+        c.SwaggerDoc("v1", new()
+        {
+            Title = "RProg.FluxoCaixa.Consolidado API",
+            Version = "v1",
+            Description = "API para consulta de dados consolidados por período e categoria usando padrão CQRS"
+        });
+
+        // Incluir comentários XML
+        var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+        var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+        if (File.Exists(xmlPath))
+        {
+            c.IncludeXmlComments(xmlPath);
+        }
+    });
+    builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()));
     builder.Services.AddScoped<IRegistrarLancamentoHandler, RegistrarLancamentoHandler>();
     builder.Services.AddScoped<ILancamentoRepository, LancamentoRepository>();
 
@@ -48,9 +66,23 @@ try
         };
     });
 
+    builder.Services.AddSingleton(async p =>
+    {
+        var connectionFactory = p.GetRequiredService<IConnectionFactory>();
+
+        return await connectionFactory.CreateConnectionAsync();
+    });
+
+    // Configuração de Health Checks
+    builder.Services.AddHealthChecks()
+        .AddSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")!, name: "database")
+        .AddRabbitMQ(name: "rabbitmq");
+
     builder.Services.AddSingleton<IMensageriaPublisher, RabbitMqPublisher>();
 
     var app = builder.Build();
+
+    app.UseHealthChecks("/api/health");
 
     // Middleware de tratamento de exceções
     app.UseMiddleware<TratarExcecoesMiddleware>();
@@ -59,10 +91,16 @@ try
     if (app.Environment.IsDevelopment())
     {
         app.UseSwagger();
-        app.UseSwaggerUI();
+        app.UseSwaggerUI(c =>
+        {
+            c.SwaggerEndpoint("/swagger/v1/swagger.json", "RProg.FluxoCaixa.Lancamentos API v1");
+            c.RoutePrefix = string.Empty;
+        });
     }
 
     app.UseHttpsRedirection();
+
+    app.UseCors("AllowAll");
 
     app.UseAuthorization();
 

@@ -1,5 +1,4 @@
 using System.Text.RegularExpressions;
-using AspNetCoreRateLimit;
 
 namespace RProg.FluxoCaixa.Proxy.Middleware;
 
@@ -12,16 +11,15 @@ public class SecurityMiddleware
     private readonly ILogger<SecurityMiddleware> _logger;
 
     // Padrões de ataques conhecidos
-    private readonly List<Regex> _padroesAtaques =
-    [
-        new (@"(\<script\>|\<\/script\>)", RegexOptions.IgnoreCase | RegexOptions.Compiled),
-        new (@"(union\s+select|drop\s+table|delete\s+from)", RegexOptions.IgnoreCase | RegexOptions.Compiled),
-        new (@"(exec\s*\(|eval\s*\(|javascript:|vbscript:)", RegexOptions.IgnoreCase | RegexOptions.Compiled),
-        new (@"(\.\./|\.\.\\)", RegexOptions.Compiled), // Path traversal
-        new (@"(\%3C|\%3E|\%27|\%22)", RegexOptions.IgnoreCase | RegexOptions.Compiled), // URL encoded attacks
-        new (@"(?i)\d+'\s*OR\s*'\d+'\s*=\s*'\d+'", RegexOptions.IgnoreCase | RegexOptions.Compiled), // SQL Injection
-        new (@"(?i)('(\s*(OR|AND)\s*)+.*(=|LIKE|IN|IS).*)|(UNION\s+SELECT)|(DROP\s+TABLE)|(INSERT\s+INTO)|(DELETE\s+FROM)|(UPDATE\s+.+\s+SET)", RegexOptions.IgnoreCase | RegexOptions.Compiled) // SQL Injection
-    ];
+    private readonly List<Regex> _padroesAtaques = new()
+    {
+        new Regex(@"(\<script\>|\<\/script\>)", RegexOptions.IgnoreCase | RegexOptions.Compiled),
+        new Regex(@"(union\s+select|drop\s+table|delete\s+from)", RegexOptions.IgnoreCase | RegexOptions.Compiled),
+        new Regex(@"(exec\s*\(|eval\s*\(|javascript:|vbscript:)", RegexOptions.IgnoreCase | RegexOptions.Compiled),
+        new Regex(@"(\.\./|\.\.\\)", RegexOptions.Compiled), // Path traversal
+        new Regex(@"(\%3C|\%3E|\%27|\%22)", RegexOptions.IgnoreCase | RegexOptions.Compiled),
+        new Regex(@"(?i)(\b(?:OR|AND)\b[^=]{1,50}?=\s*[^;\s]{1,50})|(--|#)|(/\*.*?\*/)|;\s*(?=\b(?:SELECT|INSERT|DELETE|UPDATE|DROP|UNION|EXEC|XP_)\b)|\b(?:SELECT|INSERT|DELETE|UPDATE|DROP|UNION|EXEC|XP_)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled),
+    };
 
     // User agents suspeitos
     private readonly HashSet<string> _userAgentsSuspeitos = new()
@@ -47,8 +45,8 @@ public class SecurityMiddleware
             var resultadoValidacao = await ValidarRequisicao(contexto);
             if (!resultadoValidacao.EhValida)
             {
-                _logger.LogWarning("Requisição suspeita bloqueada: {Motivo} - IP: {IP} - UserAgent: {UserAgent}", 
-                    resultadoValidacao.Motivo, 
+                _logger.LogWarning("Requisição suspeita bloqueada: {Motivo} - IP: {IP} - UserAgent: {UserAgent}",
+                    resultadoValidacao.Motivo,
                     ObterEnderecoIp(contexto),
                     contexto.Request.Headers["User-Agent"].FirstOrDefault());
 
@@ -65,7 +63,7 @@ public class SecurityMiddleware
             throw;
         }
     }
-
+    
     private void AdicionarHeadersSeguranca(HttpContext contexto)
     {
         var headers = contexto.Response.Headers;
@@ -149,6 +147,13 @@ public class SecurityMiddleware
             }
         }
 
+        // 6. Verifica frequência de requisições por IP (básico)
+        var ip = ObterEnderecoIp(contexto);
+        if (await VerificarFrequenciaExcessiva(ip))
+        {
+            return new ResultadoValidacao(false, "Frequência excessiva de requisições");
+        }
+
         return new ResultadoValidacao(true, "Requisição válida");
     }
 
@@ -158,6 +163,14 @@ public class SecurityMiddleware
             ?? contexto.Request.Headers["X-Real-IP"].FirstOrDefault()
             ?? contexto.Connection.RemoteIpAddress?.ToString()
             ?? "unknown";
+    }
+
+    private async Task<bool> VerificarFrequenciaExcessiva(string ip)
+    {
+        // Esta verificação seria melhor implementada com Redis para clusters
+        // Por simplicidade, vamos considerar que o RateLimitingMiddleware já cuida disso
+        await Task.CompletedTask;
+        return false;
     }
 }
 

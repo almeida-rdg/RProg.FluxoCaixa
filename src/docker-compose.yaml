@@ -1,5 +1,7 @@
 version: '3.9'
 
+name: fluxo-caixa
+
 networks:
   proxy-net:
     driver: bridge
@@ -60,7 +62,7 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
-      
+
   rabbitmq:
     image: rabbitmq:3.13-management
     container_name: fluxo-rabbitmq
@@ -97,13 +99,15 @@ services:
       context: ./lancamentos
       dockerfile: Dockerfile
     environment:
-      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=FluxoCaixa;User=sa;Password=Your_password123;TrustServerCertificate=True
       - RabbitMQ__HostName=rabbitmq
       - RabbitMQ__QueueName=lancamentos
       - RabbitMQ__UserName=admin
       - RabbitMQ__Password=admin123
+    ports:
+      - "81:8080"
     depends_on:
       sqlserver:
         condition: service_healthy
@@ -147,9 +151,11 @@ services:
       context: ./consolidado
       dockerfile: Dockerfile
     environment:
-      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=FluxoCaixaConsolidado;User=sa;Password=Your_password123;TrustServerCertificate=True
+    ports:
+      - "82:8080"
     depends_on:
       sqlserver:
         condition: service_healthy
@@ -237,11 +243,11 @@ services:
 
   proxy:
     build:
-      context: ./proxy/RProg.FluxoCaixa.Proxy
+      context: ./proxy
       dockerfile: Dockerfile
     container_name: fluxo-proxy
     environment:
-      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080;https://+:8443
       - DOCKER_HOST=unix:///var/run/docker.sock
       - Yarp__Clusters__Lancamentos__Destinations__destination1__Address=http://lancamentos-api:8080/

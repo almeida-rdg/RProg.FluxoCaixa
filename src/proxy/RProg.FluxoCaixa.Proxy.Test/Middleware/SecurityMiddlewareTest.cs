@@ -2,7 +2,6 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using RProg.FluxoCaixa.Proxy.Middleware;
 using Microsoft.AspNetCore.Http;
-using System.Text;
 
 namespace RProg.FluxoCaixa.Proxy.Test.Middleware;
 
@@ -105,7 +104,7 @@ public class SecurityMiddlewareTest
         // Arrange
         var middleware = new SecurityMiddleware(_mockNext.Object, _mockLogger.Object);
         var context = CriarHttpContext("GET", "/api/test");
-        context.Request.Headers[headerName] = headerValue;
+        context.Request.Headers.Append(headerName, headerValue);
 
         // Act
         await middleware.InvokeAsync(context);

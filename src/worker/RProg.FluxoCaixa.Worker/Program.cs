@@ -5,22 +5,18 @@ using Serilog;
 
 var builder = Host.CreateApplicationBuilder(args);
 
-// Configurar Serilog
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
     .CreateLogger();
 
 builder.Services.AddSerilog();
 
-// Registrar serviços
 builder.Services.AddScoped<RProg.FluxoCaixa.Worker.Domain.Services.IConsolidacaoService, RProg.FluxoCaixa.Worker.Services.ConsolidacaoService>();
 builder.Services.AddSingleton<IRabbitMqService, RabbitMqService>();
 
-// Registrar repositórios
 builder.Services.AddScoped<IConsolidadoRepository, ConsolidadoRepository>();
 builder.Services.AddScoped<ILancamentoProcessadoRepository, LancamentoProcessadoRepository>();
 
-// Registrar o worker
 builder.Services.AddHostedService<Worker>();
 
 var host = builder.Build();

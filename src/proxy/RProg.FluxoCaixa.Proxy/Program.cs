@@ -1,14 +1,10 @@
-using RProg.FluxoCaixa.Proxy.Authentication;
 using RProg.FluxoCaixa.Proxy.Middleware;
-using RProg.FluxoCaixa.Proxy.Services;
 using Serilog;
-using Yarp.ReverseProxy.Configuration;
 
-// Configuração do Serilog
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(new ConfigurationBuilder()
         .AddJsonFile("appsettings.json")
-        .AddJsonFile($"appsettings.{Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production"}.json", optional: true)
+        .AddJsonFile($"appsettings.{Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development"}.json", optional: true)
         .Build())
     .CreateLogger();
 
@@ -18,20 +14,13 @@ try
 
     var builder = WebApplication.CreateBuilder(args);
 
-    // Configuração do Serilog
     builder.Host.UseSerilog();
 
-    // Configuração do cache em memória
     builder.Services.AddMemoryCache(options =>
     {
         options.SizeLimit = builder.Configuration.GetValue<int>("Cache:SizeLimit", 1000);
-    });    // Configuração de autenticação JWT
-    builder.Services.AddJwtAuthentication(builder.Configuration);
-    
-    // Registrar serviços JWT
-    builder.Services.AddScoped<JwtTokenService>();
+    });
 
-    // Configuração de CORS
     builder.Services.AddCors(options =>
     {
         options.AddPolicy("DefaultPolicy", policy =>
@@ -41,31 +30,20 @@ try
                   .AllowAnyHeader();
         });
     });
+    builder.Services.AddOutputCache(options =>
+    {
+        options.AddBasePolicy(builder =>
+        {
+            builder.Expire(TimeSpan.FromMinutes(5));
+        });
+    });
 
-    // Health checks
     builder.Services.AddHealthChecks()
-        .AddCheck("proxy-health", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy("Proxy está funcionando"));    // Configuração do YARP
-    builder.Services.AddSingleton<IProxyConfigProvider>(serviceProvider =>
-    {
-        var logger = serviceProvider.GetRequiredService<ILogger<ConfiguracaoYarpProvider>>();
-        var configuration = serviceProvider.GetRequiredService<IConfiguration>();
-        return new ConfiguracaoYarpProvider(logger, configuration);
-    });
+        .AddCheck("proxy-health", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy("Proxy está funcionando"));
     
-    builder.Services.AddSingleton<ConfiguracaoYarpProvider>(serviceProvider =>
-    {
-        var logger = serviceProvider.GetRequiredService<ILogger<ConfiguracaoYarpProvider>>();
-        var configuration = serviceProvider.GetRequiredService<IConfiguration>();
-        return new ConfiguracaoYarpProvider(logger, configuration);
-    });
-
     builder.Services.AddReverseProxy()
         .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
-    // Serviços customizados
-    builder.Services.AddHostedService<MonitoramentoContainersService>();
-
-    // Swagger para documentação (apenas em desenvolvimento)
     if (builder.Environment.IsDevelopment())
     {
         builder.Services.AddEndpointsApiExplorer();
@@ -82,7 +60,9 @@ try
 
     var app = builder.Build();
 
-    // Pipeline de middlewares
+    app.UseCors("DefaultPolicy");
+    app.UseOutputCache();
+
     if (app.Environment.IsDevelopment())
     {
         app.UseSwagger();
@@ -93,7 +73,6 @@ try
         });
     }
 
-    // Middleware de logging de requisições
     app.UseSerilogRequestLogging(options =>
     {
         options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} respondido {StatusCode} em {Elapsed:0.0000} ms";
@@ -102,28 +81,16 @@ try
             : elapsed > 1000 
                 ? Serilog.Events.LogEventLevel.Warning 
                 : Serilog.Events.LogEventLevel.Information;
-    });    // Middlewares de segurança e proteção
-    app.UseMiddleware<TokenExtractionMiddleware>();
+    });
+    
     app.UseMiddleware<SecurityMiddleware>();
     app.UseMiddleware<RateLimitingMiddleware>();
+    
+    app.MapHealthChecks("/api/health");
+    app.MapHealthChecks("/api/health/ready");
+    app.MapHealthChecks("/api/health/live");
 
-    // Middleware de cache (antes do YARP)
-    app.UseMiddleware<CacheMiddleware>();
-
-    // CORS
-    app.UseCors("DefaultPolicy");
-
-    // Autenticação e autorização
-    app.UseAuthentication();
-    app.UseAuthorization();
-
-    // Health checks
-    app.MapHealthChecks("/health");
-    app.MapHealthChecks("/health/ready");
-    app.MapHealthChecks("/health/live");
-
-    // Endpoint de métricas básicas
-    app.MapGet("/metrics", async (HttpContext context) =>
+    app.MapGet("/api/metrics", async (HttpContext context) =>
     {
         var metricas = new
         {
@@ -137,8 +104,7 @@ try
         await context.Response.WriteAsJsonAsync(metricas);
     });
 
-    // Endpoint de informações do proxy
-    app.MapGet("/proxy/info", () =>
+    app.MapGet("/api/proxy/info", () =>
     {
         return Results.Json(new
         {
@@ -159,10 +125,8 @@ try
         });
     });
 
-    // Configuração do YARP como último middleware
     app.MapReverseProxy();
 
-    // Tratamento de erros globais
     app.UseExceptionHandler(errorApp =>
     {
         errorApp.Run(async context =>
