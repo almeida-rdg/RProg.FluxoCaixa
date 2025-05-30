@@ -1,4 +1,4 @@
-# Dockerfile para RProg.FluxoCaixa.Consolidado
+# Dockerfile otimizado para RProg.FluxoCaixa.Consolidado
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 WORKDIR /app
 EXPOSE 8080
@@ -8,18 +8,26 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
-# Copiar arquivo de projeto e restaurar dependências
+# OTIMIZAÇÃO: Copiar arquivos de configuração de dependências primeiro
+COPY ["../../Directory.Build.props", "./"]
+COPY ["../../Directory.Packages.props", "./"]
+COPY ["../../nuget.config", "./"]
+COPY ["../../global.json", "./"]
+
+# Copiar arquivos de projeto para restore
 COPY ["RProg.FluxoCaixa.Consolidado/RProg.FluxoCaixa.Consolidado.csproj", "RProg.FluxoCaixa.Consolidado/"]
+
+# Executar restore (esta layer será cacheada se as dependências não mudarem)
 RUN dotnet restore "RProg.FluxoCaixa.Consolidado/RProg.FluxoCaixa.Consolidado.csproj"
 
 # Copiar código fonte e compilar
 COPY . .
 WORKDIR "/src/RProg.FluxoCaixa.Consolidado"
-RUN dotnet build "RProg.FluxoCaixa.Consolidado.csproj" -c $BUILD_CONFIGURATION -o /app/build
+RUN dotnet build "RProg.FluxoCaixa.Consolidado.csproj" -c $BUILD_CONFIGURATION -o /app/build --no-restore
 
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "RProg.FluxoCaixa.Consolidado.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "RProg.FluxoCaixa.Consolidado.csproj" -c $BUILD_CONFIGURATION -o /app/publish --no-restore /p:UseAppHost=false
 
 FROM base AS final
 WORKDIR /app

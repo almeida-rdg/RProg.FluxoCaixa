@@ -147,13 +147,6 @@ public class SecurityMiddleware
             }
         }
 
-        // 6. Verifica frequência de requisições por IP (básico)
-        var ip = ObterEnderecoIp(contexto);
-        if (await VerificarFrequenciaExcessiva(ip))
-        {
-            return new ResultadoValidacao(false, "Frequência excessiva de requisições");
-        }
-
         return new ResultadoValidacao(true, "Requisição válida");
     }
 
@@ -163,14 +156,6 @@ public class SecurityMiddleware
             ?? contexto.Request.Headers["X-Real-IP"].FirstOrDefault()
             ?? contexto.Connection.RemoteIpAddress?.ToString()
             ?? "unknown";
-    }
-
-    private async Task<bool> VerificarFrequenciaExcessiva(string ip)
-    {
-        // Esta verificação seria melhor implementada com Redis para clusters
-        // Por simplicidade, vamos considerar que o RateLimitingMiddleware já cuida disso
-        await Task.CompletedTask;
-        return false;
     }
 }
 

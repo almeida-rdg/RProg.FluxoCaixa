@@ -83,8 +83,8 @@ export ASPNETCORE_ENVIRONMENT=Production
 docker-compose -f docker-compose.proxy.yaml up -d
 
 # 3. Verificar health checks
-curl http://localhost/health
-curl https://localhost/health
+curl http://localhost/api/health
+curl https://localhost/api/health
 ```
 
 ### 4. Kubernetes (Futuro)
@@ -116,13 +116,13 @@ spec:
           value: "Production"
         livenessProbe:
           httpGet:
-            path: /health
+            path: /api/health
             port: 80
           initialDelaySeconds: 30
           periodSeconds: 30
         readinessProbe:
           httpGet:
-            path: /health/ready
+            path: /api/health/ready
             port: 80
           initialDelaySeconds: 5
           periodSeconds: 10
@@ -233,7 +233,7 @@ docker-compose up -d proxy
 # Verificar status
 echo "Checking health..."
 sleep 10
-curl -f http://localhost/health || exit 1
+curl -f http://localhost/api/health || exit 1
 
 echo "Deploy completed successfully!"
 echo "Proxy available at: http://localhost"
@@ -270,7 +270,7 @@ try {
     Start-Sleep 30
 
     Write-Host "Checking health..." -ForegroundColor Blue
-    $response = Invoke-WebRequest -Uri "http://localhost/health" -UseBasicParsing
+    $response = Invoke-WebRequest -Uri "http://localhost/api/health" -UseBasicParsing
     if ($response.StatusCode -eq 200) {
         Write-Host "Deploy completed successfully!" -ForegroundColor Green
         Write-Host "Proxy available at: http://localhost" -ForegroundColor Cyan
@@ -289,16 +289,16 @@ try {
 ### Health Checks
 ```bash
 # Status geral
-curl http://localhost/health
+curl http://localhost/api/health
 
 # Status detalhado (development)
-curl http://localhost/health/detailed
+curl http://localhost/api/health/detailed
 
 # Métricas de cache
-curl http://localhost/health | jq '.cache'
+curl http://localhost/api/health | jq '.cache'
 
 # Status dos backends
-curl http://localhost/health | jq '.backends'
+curl http://localhost/api/health | jq '.backends'
 ```
 
 ### Logs

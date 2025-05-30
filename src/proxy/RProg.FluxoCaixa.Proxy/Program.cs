@@ -16,11 +16,6 @@ try
 
     builder.Host.UseSerilog();
 
-    builder.Services.AddMemoryCache(options =>
-    {
-        options.SizeLimit = builder.Configuration.GetValue<int>("Cache:SizeLimit", 1000);
-    });
-
     builder.Services.AddCors(options =>
     {
         options.AddPolicy("DefaultPolicy", policy =>
@@ -69,7 +64,7 @@ try
         app.UseSwaggerUI(c =>
         {
             c.SwaggerEndpoint("/swagger/v1/swagger.json", "FluxoCaixa Proxy API V1");
-            c.RoutePrefix = "swagger";
+            c.RoutePrefix = "";
         });
     }
 
@@ -87,8 +82,26 @@ try
     app.UseMiddleware<RateLimitingMiddleware>();
     
     app.MapHealthChecks("/api/health");
-    app.MapHealthChecks("/api/health/ready");
-    app.MapHealthChecks("/api/health/live");
+    app.MapHealthChecks("/api/health/detailed", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+    {
+        Predicate = _ => true,
+        ResponseWriter = async (context, report) =>
+        {
+            context.Response.ContentType = "application/json";
+            var result = new
+            {
+                status = report.Status.ToString(),
+                checks = report.Entries.Select(e => new
+                {
+                    name = e.Key,
+                    status = e.Value.Status.ToString(),
+                    description = e.Value.Description,
+                    duration = e.Value.Duration.TotalMilliseconds
+                })
+            };
+            await context.Response.WriteAsJsonAsync(result);
+        }
+    });
 
     app.MapGet("/api/metrics", async (HttpContext context) =>
     {
@@ -96,12 +109,17 @@ try
         {
             timestamp = DateTime.UtcNow,
             uptime = DateTime.UtcNow - System.Diagnostics.Process.GetCurrentProcess().StartTime.ToUniversalTime(),
-            memoryUsage = GC.GetTotalMemory(false),
+            memoryUsage = GC.GetTotalMemory(false) / 1024 / 1024, // em MB
+            cpuUsage = System.Diagnostics.Process.GetCurrentProcess().TotalProcessorTime.TotalMilliseconds / Environment.ProcessorCount,
             processorCount = Environment.ProcessorCount,
             version = "1.0.0"
         };
 
-        await context.Response.WriteAsJsonAsync(metricas);
+        await context.Response.WriteAsJsonAsync(metricas, new System.Text.Json.JsonSerializerOptions
+        {
+            PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+            WriteIndented = true
+        });
     });
 
     app.MapGet("/api/proxy/info", () =>
@@ -115,13 +133,15 @@ try
             {
                 "Load Balancing",
                 "Health Checks", 
-                "Circuit Breaker",
                 "Rate Limiting",
                 "Security Protection",
-                "Response Caching",
-                "Auto Scaling"
+                "Response Caching"
             },
             uptime = DateTime.UtcNow - System.Diagnostics.Process.GetCurrentProcess().StartTime.ToUniversalTime()
+        }, new System.Text.Json.JsonSerializerOptions
+        {
+            PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+            WriteIndented = true
         });
     });
 

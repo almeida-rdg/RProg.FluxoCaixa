@@ -1,22 +1,13 @@
--- Script para criação do banco de dados consolidado otimizado para máxima performance de leitura
--- RProg.FluxoCaixa.Worker
-
 -- Criar banco de dados (caso não exista)
-IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = 'RProg_FluxoCaixa_Consolidado')
+IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = 'FluxoCaixa_Consolidado')
 BEGIN
-    CREATE DATABASE RProg_FluxoCaixa_Consolidado;
+    CREATE DATABASE FluxoCaixa_Consolidado;
+
+    PRINT 'Banco FluxoCaixa_Consolidado criado com sucesso.';
 END
 GO
 
--- Configurações de banco para performance otimizada
-ALTER DATABASE RProg_FluxoCaixa_Consolidado SET RECOVERY SIMPLE;
-ALTER DATABASE RProg_FluxoCaixa_Consolidado SET AUTO_UPDATE_STATISTICS_ASYNC ON;
-ALTER DATABASE RProg_FluxoCaixa_Consolidado SET PAGE_VERIFY CHECKSUM;
-ALTER DATABASE RProg_FluxoCaixa_Consolidado SET AUTO_CREATE_STATISTICS ON;
-ALTER DATABASE RProg_FluxoCaixa_Consolidado SET AUTO_UPDATE_STATISTICS ON;
-GO
-
-USE RProg_FluxoCaixa_Consolidado;
+USE FluxoCaixa_Consolidado;
 GO
 
 -- Tabela para consolidações diárias otimizada para performance de leitura
@@ -34,14 +25,15 @@ BEGIN
         [DataCriacao] DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
         [DataAtualizacao] DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
         
-        CONSTRAINT [PK_ConsolidadoDiario] PRIMARY KEY CLUSTERED ([Data] ASC, [TipoConsolidacao] ASC, [Categoria] ASC),
+        CONSTRAINT [PK_ConsolidadoDiario_Id] PRIMARY KEY NONCLUSTERED ([Id] ASC),
+        INDEX [IX_ConsolidadoDiario_Categoria_Data] CLUSTERED ([Data] ASC, [TipoConsolidacao] ASC, [Categoria] ASC),
         CONSTRAINT [UK_ConsolidadoDiario_Data_Categoria] UNIQUE NONCLUSTERED ([Data] ASC, [Categoria] ASC),
         CONSTRAINT [CK_ConsolidadoDiario_Creditos] CHECK ([TotalCreditos] >= 0),
         CONSTRAINT [CK_ConsolidadoDiario_Debitos] CHECK ([TotalDebitos] <= 0),
         CONSTRAINT [CK_ConsolidadoDiario_Quantidade] CHECK ([QuantidadeLancamentos] >= 0)
     );
     
-    PRINT 'Tabela ConsolidadoDiario criada com sucesso com otimizações de performance.';
+    PRINT 'Tabela ConsolidadoDiario criada com sucesso.';
 END
 ELSE
 BEGIN

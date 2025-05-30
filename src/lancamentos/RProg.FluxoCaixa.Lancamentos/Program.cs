@@ -62,21 +62,22 @@ try
         var config = sp.GetRequiredService<IConfiguration>();
         return new ConnectionFactory
         {
-            HostName = config["RabbitMQ:HostName"] ?? string.Empty
+            HostName = config["RabbitMQ:HostName"] ?? string.Empty,
+            UserName = config["RabbitMQ:UserName"] ?? string.Empty,
+            Password = config["RabbitMQ:Password"] ?? string.Empty
         };
     });
 
-    builder.Services.AddSingleton(async p =>
+    builder.Services.AddSingleton<IConnection>(p =>
     {
         var connectionFactory = p.GetRequiredService<IConnectionFactory>();
 
-        return await connectionFactory.CreateConnectionAsync();
+        return connectionFactory.CreateConnectionAsync().GetAwaiter().GetResult();
     });
 
     // Configuração de Health Checks
     builder.Services.AddHealthChecks()
-        .AddSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")!, name: "database")
-        .AddRabbitMQ(name: "rabbitmq");
+        .AddSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")!, name: "database");
 
     builder.Services.AddSingleton<IMensageriaPublisher, RabbitMqPublisher>();
 

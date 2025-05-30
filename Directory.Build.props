@@ -1,0 +1,40 @@
+<Project>
+  <!-- Propriedades comuns para todos os projetos -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <WarningsAsErrors />
+    <WarningsNotAsErrors />
+  </PropertyGroup>
+
+  <!-- Propriedades específicas para projetos de teste -->
+  <PropertyGroup Condition="'$(IsTestProject)' == 'true'">
+    <IsPackable>false</IsPackable>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+  </PropertyGroup>
+
+  <!-- Propriedades específicas para aplicações web -->
+  <PropertyGroup Condition="'$(MSBuildProjectExtension)' == '.csproj' AND '$(UseWPF)' != 'true' AND '$(UseWindowsForms)' != 'true' AND '$(IsTestProject)' != 'true'">
+    <GenerateDocumentationFile Condition="'$(Configuration)' == 'Release'">true</GenerateDocumentationFile>
+    <NoWarn Condition="'$(GenerateDocumentationFile)' == 'true'">$(NoWarn);1591</NoWarn>
+  </PropertyGroup>
+
+  <!-- Configurações de performance para build -->
+  <PropertyGroup>
+    <UseSharedCompilation>true</UseSharedCompilation>
+    <BuildInParallel>true</BuildInParallel>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RestoreLockedMode Condition="'$(CI)' == 'true'">true</RestoreLockedMode>
+  </PropertyGroup>
+
+  <!-- Imports comuns para projetos de teste -->
+  <ItemGroup Condition="'$(IsTestProject)' == 'true'">
+    <Using Include="Xunit" />
+    <Using Include="FluentAssertions" />
+    <Using Include="Moq" />
+  </ItemGroup>
+
+</Project>

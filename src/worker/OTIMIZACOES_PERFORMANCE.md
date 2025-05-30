@@ -192,9 +192,9 @@ _timerLimpeza = new Timer(
 ### **Configurações de Banco para Produção**
 ```sql
 -- Para alta performance em produção
-ALTER DATABASE RProg_FluxoCaixa_Consolidado SET AUTO_UPDATE_STATISTICS_ASYNC ON;
-ALTER DATABASE RProg_FluxoCaixa_Consolidado SET AUTO_CREATE_STATISTICS ON;
-ALTER DATABASE RProg_FluxoCaixa_Consolidado SET PARAMETERIZATION FORCED;
+ALTER DATABASE FluxoCaixa_Consolidado SET AUTO_UPDATE_STATISTICS_ASYNC ON;
+ALTER DATABASE FluxoCaixa_Consolidado SET AUTO_CREATE_STATISTICS ON;
+ALTER DATABASE FluxoCaixa_Consolidado SET PARAMETERIZATION FORCED;
 ```
 
 ## 🎯 Benefícios Alcançados

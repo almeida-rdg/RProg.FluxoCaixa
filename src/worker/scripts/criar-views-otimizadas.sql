@@ -2,7 +2,7 @@
 -- RProg.FluxoCaixa.Worker - Abordagem híbrida com views materializadas
 -- Seguindo padrões de Clean Architecture e testabilidade
 
-USE RProg_FluxoCaixa_Consolidado;
+USE FluxoCaixa_Consolidado;
 GO
 
 -- Configurações de performance para sessão

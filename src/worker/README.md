@@ -65,7 +65,7 @@ RProg.FluxoCaixa.Worker/
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Server=localhost,1433;Database=RProg_FluxoCaixa_Consolidado;User Id=sa;Password=SuaSenhaForte123!;TrustServerCertificate=true"
+    "DefaultConnection": "Server=localhost,1433;Database=FluxoCaixa_Consolidado;User Id=sa;Password=SuaSenhaForte123!;TrustServerCertificate=true"
   },
   "RabbitMQ": {
     "HostName": "localhost",

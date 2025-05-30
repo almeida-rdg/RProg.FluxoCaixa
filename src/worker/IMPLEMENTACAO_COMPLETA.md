@@ -13,7 +13,7 @@ Implementação bem-sucedida da aplicação worker com todas as funcionalidades 
    - QoS configurado para processamento sequencial
 
 2. **Estrutura de Banco para Consolidação** ✅
-   - Banco `RProg_FluxoCaixa_Consolidado` criado
+   - Banco `FluxoCaixa_Consolidado` criado
    - Tabela `ConsolidadoDiario` para consolidações diárias
    - Tabela `LancamentoProcessado` para controle de idempotência
    - Índices otimizados para performance

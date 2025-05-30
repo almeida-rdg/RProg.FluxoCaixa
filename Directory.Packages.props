@@ -1,0 +1,70 @@
+<Project>
+  <!-- Habilita o gerenciamento centralizado de pacotes -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <!-- Versões centralizadas dos pacotes principais -->
+  <ItemGroup>
+    <!-- Logging -->
+    <PackageVersion Include="Serilog" Version="3.1.1" />
+    <PackageVersion Include="Serilog.AspNetCore" Version="8.0.1" />
+    <PackageVersion Include="Serilog.Sinks.Console" Version="5.0.1" />
+    <PackageVersion Include="Serilog.Sinks.File" Version="5.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.5" />
+
+    <!-- Acesso a dados -->
+    <PackageVersion Include="Dapper" Version="2.1.66" />
+    <PackageVersion Include="Microsoft.Data.SqlClient" Version="6.0.2" />
+    <PackageVersion Include="System.Data.SqlClient" Version="4.9.0" />
+
+    <!-- Mediator pattern -->
+    <PackageVersion Include="MediatR" Version="12.5.0" />
+
+    <!-- Message queue -->
+    <PackageVersion Include="RabbitMQ.Client" Version="7.1.2" />
+
+    <!-- Health checks -->
+    <PackageVersion Include="AspNetCore.HealthChecks.Rabbitmq" Version="8.0.2" />
+    <PackageVersion Include="AspNetCore.HealthChecks.SqlServer" Version="8.0.2" />
+    <PackageVersion Include="Microsoft.AspNetCore.Diagnostics.HealthChecks" Version="2.2.0" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="8.0.16" />
+
+    <!-- API documentation -->
+    <PackageVersion Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="8.0.16" />
+
+    <!-- YARP Reverse Proxy -->
+    <PackageVersion Include="Yarp.ReverseProxy" Version="2.1.0" />
+
+    <!-- Authentication and Authorization -->
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.16" />
+    <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="7.5.0" />
+
+    <!-- Rate limiting -->
+    <PackageVersion Include="AspNetCoreRateLimit" Version="5.0.0" />
+
+    <!-- HTTP client -->
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="8.0.0" />
+
+    <!-- Worker services -->
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+
+    <!-- JSON serialization -->
+    <PackageVersion Include="System.Text.Json" Version="8.0.5" />
+
+    <!-- Validation -->
+    <PackageVersion Include="System.ComponentModel.Annotations" Version="5.0.0" />    <!-- Testing packages -->
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.5.3" />
+    <PackageVersion Include="coverlet.collector" Version="6.0.0" />
+    <PackageVersion Include="Moq" Version="4.20.72" />
+    <PackageVersion Include="FluentAssertions" Version="6.12.0" />
+    <PackageVersion Include="Bogus" Version="35.4.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
+  </ItemGroup>
+
+</Project>
