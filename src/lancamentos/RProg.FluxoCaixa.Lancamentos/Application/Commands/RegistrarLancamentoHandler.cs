@@ -1,3 +1,4 @@
+using MediatR;
 using RProg.FluxoCaixa.Lancamentos.Domain.Entities;
 using RProg.FluxoCaixa.Lancamentos.Domain.Exceptions;
 using RProg.FluxoCaixa.Lancamentos.Infrastructure;
@@ -8,7 +9,7 @@ namespace RProg.FluxoCaixa.Lancamentos.Application.Commands
     /// <summary>
     /// Handler responsável por processar comandos de registro de lançamentos financeiros.
     /// </summary>
-    public class RegistrarLancamentoHandler : IRegistrarLancamentoHandler
+    public class RegistrarLancamentoHandler : IRequestHandler<RegistrarLancamentoCommand, int>
     {
         private readonly IMensageriaPublisher _mensageriaPublisher;
         private readonly ILancamentoRepository _lancamentoRepository;
@@ -43,7 +44,9 @@ namespace RProg.FluxoCaixa.Lancamentos.Application.Commands
                 var id = await _lancamentoRepository.CriarLancamentoAsync(lancamento);
                 _logger.LogInformation("Lançamento criado no banco de dados com ID: {LancamentoId}", id);
 
-                await _mensageriaPublisher.PublicarMensagemAsync(comando);
+                await _mensageriaPublisher.PublicarMensagemAsync(lancamento with {
+                    Id = id
+                });
                 _logger.LogInformation("Mensagem publicada na fila para lançamento ID: {LancamentoId}", id);
 
                 _logger.LogInformation("Lançamento registrado com sucesso. ID: {LancamentoId}", id);

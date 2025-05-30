@@ -7,7 +7,6 @@ GO
 
 -- Configurações de performance para sessão
 SET ANSI_NULLS ON;
-SET QUOTED_IDENTIFIER ON;
 GO
 
 -- View otimizada para consolidação geral com hint de índice embutido

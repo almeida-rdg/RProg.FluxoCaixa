@@ -6,11 +6,11 @@ namespace RProg.FluxoCaixa.Lancamentos.Domain.Entities
     /// <summary>
     /// Entidade de domínio para Lançamento com validações de negócio.
     /// </summary>
-    public class Lancamento
+    public record class Lancamento
     {
         private static readonly Regex _regexLetras = new(@"[a-zA-Z]", RegexOptions.Compiled);
 
-        public int? Id { get; private set; }
+        public int? Id { get; init; }
         public decimal Valor { get; private set; }
         public TipoLancamento Tipo { get; private set; }
         public DateTime Data { get; private set; }

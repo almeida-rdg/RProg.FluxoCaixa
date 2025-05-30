@@ -29,7 +29,7 @@ try
     {
         options.AddBasePolicy(builder =>
         {
-            builder.Expire(TimeSpan.FromMinutes(5));
+            builder.Expire(TimeSpan.FromSeconds(5));
         });
     });
 

@@ -14,8 +14,8 @@ public class RateLimitingMiddleware
     private readonly Timer _limpezaTimer;
 
     // Configurações de rate limiting
-    private readonly int _limitePorMinuto = 60;
-    private readonly int _limitePorSegundo = 10;
+    private readonly int _limitePorMinuto = 61440; // 1024 requisições por segundo * 60 segundos
+    private readonly int _limitePorSegundo = 1024;
     private readonly TimeSpan _janelaTempo = TimeSpan.FromMinutes(1);
 
     public RateLimitingMiddleware(RequestDelegate proximo, ILogger<RateLimitingMiddleware> logger)

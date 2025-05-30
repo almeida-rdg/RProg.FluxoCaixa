@@ -43,10 +43,8 @@ try
         if (File.Exists(xmlPath))
         {
             c.IncludeXmlComments(xmlPath);
-        }
-    });
+        }    });
     builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()));
-    builder.Services.AddScoped<IRegistrarLancamentoHandler, RegistrarLancamentoHandler>();
     builder.Services.AddScoped<ILancamentoRepository, LancamentoRepository>();
 
     builder.Services.AddScoped<IDbConnection>(sp =>

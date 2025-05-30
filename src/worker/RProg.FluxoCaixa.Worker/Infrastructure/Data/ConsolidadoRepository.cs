@@ -19,6 +19,7 @@ namespace RProg.FluxoCaixa.Worker.Infrastructure.Data
                 ?? throw new ArgumentNullException(nameof(configuration), "Connection string não configurada");
             _logger = logger;
         }
+
         public async Task<ConsolidadoDiario> ObterOuCriarConsolidadoAsync(DateTime data, string? categoria, CancellationToken cancellationToken)
         {
             using var connection = new SqlConnection(_connectionString);
@@ -54,6 +55,7 @@ namespace RProg.FluxoCaixa.Worker.Infrastructure.Data
 
             return consolidado;
         }
+
         public async Task SalvarConsolidadoAsync(ConsolidadoDiario consolidado, CancellationToken cancellationToken)
         {
             using var connection = new SqlConnection(_connectionString);
@@ -79,6 +81,7 @@ namespace RProg.FluxoCaixa.Worker.Infrastructure.Data
             _logger.LogDebug("Consolidado atualizado: ID={Id}, Créditos={Creditos}, Débitos={Debitos}",
                 consolidado.Id, consolidado.TotalCreditos, consolidado.TotalDebitos);
         }
+
         public async Task<ConsolidadoDiario?> ObterPorDataECategoriaAsync(DateTime data, string? categoria, CancellationToken cancellationToken)
         {
             using var connection = new SqlConnection(_connectionString);
@@ -97,69 +100,7 @@ namespace RProg.FluxoCaixa.Worker.Infrastructure.Data
 
             return consolidado;
         }
-        public async Task<IEnumerable<ConsolidadoDiario>> ListarPorDataAsync(DateTime data, CancellationToken cancellationToken)
-        {
-            using var connection = new SqlConnection(_connectionString);
 
-            // Usa índice otimizado para busca por data
-            const string selectSql = @"
-                SELECT Id, Data, Categoria, TipoConsolidacao, TotalCreditos, TotalDebitos, SaldoLiquido, 
-                       QuantidadeLancamentos, DataCriacao, DataAtualizacao
-                FROM ConsolidadoDiario 
-                WHERE Data = @Data
-                ORDER BY CASE WHEN Categoria IS NULL THEN 0 ELSE 1 END, Categoria";
-
-            var consolidados = await connection.QueryAsync<ConsolidadoDiario>(
-                selectSql,
-                new { Data = data.Date });
-
-            return consolidados;
-        }
-
-        /// <summary>
-        /// Obtém consolidação geral por período usando stored procedure otimizada.
-        /// </summary>
-        public async Task<IEnumerable<ConsolidadoDiario>> ObterConsolidacaoGeralPorPeriodoAsync(DateTime dataInicio, DateTime dataFim, CancellationToken cancellationToken)
-        {
-            using var connection = new SqlConnection(_connectionString);
-
-            var consolidados = await connection.QueryAsync<ConsolidadoDiario>(
-                "sp_ObterConsolidacaoGeralPorPeriodo",
-                new { DataInicio = dataInicio.Date, DataFim = dataFim.Date },
-                commandType: CommandType.StoredProcedure);
-
-            return consolidados;
-        }
-
-        /// <summary>
-        /// Obtém consolidação por categoria e período usando stored procedure otimizada.
-        /// </summary>
-        public async Task<IEnumerable<ConsolidadoDiario>> ObterConsolidacaoPorCategoriaPeriodoAsync(DateTime dataInicio, DateTime dataFim, string? categoria, CancellationToken cancellationToken)
-        {
-            using var connection = new SqlConnection(_connectionString);
-
-            var consolidados = await connection.QueryAsync<ConsolidadoDiario>(
-                "sp_ObterConsolidacaoPorCategoriaPeriodo",
-                new { DataInicio = dataInicio.Date, DataFim = dataFim.Date, Categoria = categoria },
-                commandType: CommandType.StoredProcedure);
-
-            return consolidados;
-        }
-
-        /// <summary>
-        /// Obtém relatório completo de consolidação usando stored procedure otimizada.
-        /// </summary>
-        public async Task<IEnumerable<ConsolidadoDiario>> ObterRelatorioCompletoConsolidacaoAsync(DateTime dataInicio, DateTime dataFim, CancellationToken cancellationToken)
-        {
-            using var connection = new SqlConnection(_connectionString);
-
-            var consolidados = await connection.QueryAsync<ConsolidadoDiario>(
-                "sp_ObterRelatorioCompletoConsolidacao",
-                new { DataInicio = dataInicio.Date, DataFim = dataFim.Date },
-                commandType: CommandType.StoredProcedure);
-
-            return consolidados;
-        }
         public async Task RecalcularConsolidacoesDataAsync(DateTime data, CancellationToken cancellationToken)
         {
             using var connection = new SqlConnection(_connectionString);
