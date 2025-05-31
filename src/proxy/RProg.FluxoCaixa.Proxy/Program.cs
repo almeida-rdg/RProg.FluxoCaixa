@@ -1,4 +1,6 @@
 using RProg.FluxoCaixa.Proxy.Middleware;
+using RProg.FluxoCaixa.Proxy.Configuration;
+using Microsoft.Extensions.Options;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
@@ -31,10 +33,13 @@ try
         {
             builder.Expire(TimeSpan.FromSeconds(5));
         });
-    });
-
-    builder.Services.AddHealthChecks()
+    });    builder.Services.AddHealthChecks()
         .AddCheck("proxy-health", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy("Proxy está funcionando"));
+    
+    // Configuração do Rate Limiting
+    builder.Services.Configure<RateLimitingOptions>(
+        builder.Configuration.GetSection(RateLimitingOptions.SectionName));
+    builder.Services.AddSingleton<IValidateOptions<RateLimitingOptions>, RateLimitingOptionsValidator>();
     
     builder.Services.AddReverseProxy()
         .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));

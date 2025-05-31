@@ -25,7 +25,7 @@ namespace RProg.FluxoCaixa.Lancamentos.Infrastructure.Data.Dapper
 
         public async Task<IEnumerable<Lancamento>> ObterPorDataAsync(DateTime data, CancellationToken cancellationToken)
         {
-            var sql = "SELECT * FROM Lancamentos WHERE CAST(Data AS DATE) = @Data";
+            var sql = "SELECT * FROM Lancamentos WHERE CAST(Data AS DATE) = @Data ORDER BY Data";
 
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -64,7 +64,7 @@ namespace RProg.FluxoCaixa.Lancamentos.Infrastructure.Data.Dapper
 
         public async Task<IEnumerable<Lancamento>> ObterPorIntervaloAsync(DateTime dataInicial, DateTime dataFinal, CancellationToken cancellationToken)
         {
-            var sql = "SELECT * FROM Lancamentos WHERE Data >= @DataInicial AND Data < @DataFinal ORDER BY Data";
+            var sql = "SELECT * FROM Lancamentos WHERE CAST(Data AS DATE) >= @DataInicial AND CAST(Data AS DATE) <= @DataFinal ORDER BY Data";
 
             cancellationToken.ThrowIfCancellationRequested();
 

@@ -18,28 +18,26 @@ namespace RProg.FluxoCaixa.Consolidado.Application.Queries
         {
             _repository = repository;
             _logger = logger;
-        }
-
-        /// <summary>
-        /// Processa a query para obter dados consolidados por período.
+        }        /// <summary>
+        /// Processa a query para obter dados consolidados por período e tipo de consolidação.
         /// </summary>
-        /// <param name="request">Query com período desejado</param>
+        /// <param name="request">Query com período e tipo desejados</param>
         /// <param name="cancellationToken">Token de cancelamento</param>
-        /// <returns>Dados consolidados do período com informações de última atualização</returns>
+        /// <returns>Dados consolidados do período e tipo com informações de última atualização</returns>
         public async Task<ConsolidadoPeriodoResponseDto> Handle(ObterConsolidadosPorPeriodoQuery request, CancellationToken cancellationToken)
         {
-            _logger.LogInformation("Iniciando consulta de consolidados por período: {DataInicial:yyyy-MM-dd} a {DataFinal:yyyy-MM-dd}",
-                request.DataInicial, request.DataFinal);
+            _logger.LogInformation("Iniciando consulta de consolidados por período e tipo: {DataInicial:yyyy-MM-dd} a {DataFinal:yyyy-MM-dd}, Tipo: {TipoConsolidacao}",
+                request.DataInicial, request.DataFinal, request.TipoConsolidacao);
 
             try
             {
-                // Busca dados consolidados do período
-                var consolidados = await _repository.ObterPorPeriodoAsync(
-                    request.DataInicial, request.DataFinal, cancellationToken);
+                // Busca dados consolidados do período e tipo
+                var consolidados = await _repository.ObterPorPeriodoETipoAsync(
+                    request.DataInicial, request.DataFinal, request.TipoConsolidacao, cancellationToken);
 
-                // Busca a última data de atualização do período
-                var ultimaConsolidacao = await _repository.ObterUltimaDataAtualizacaoAsync(
-                    request.DataInicial, request.DataFinal, cancellationToken);
+                // Busca a última data de atualização do período e tipo
+                var ultimaConsolidacao = await _repository.ObterUltimaDataAtualizacaoPorTipoAsync(
+                    request.DataInicial, request.DataFinal, request.TipoConsolidacao, cancellationToken);
 
                 // Mapeia para DTO de resposta
                 var consolidadosDto = consolidados.Select(c => new ConsolidadoResponseDto
@@ -63,15 +61,15 @@ namespace RProg.FluxoCaixa.Consolidado.Application.Queries
                     TotalRegistros = consolidadosDto.Count
                 };
 
-                _logger.LogInformation("Consulta concluída. {TotalRegistros} registros encontrados. Última consolidação: {UltimaConsolidacao}",
-                    response.TotalRegistros, response.UltimaConsolidacao?.ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A");
+                _logger.LogInformation("Consulta concluída. {TotalRegistros} registros encontrados para tipo {TipoConsolidacao}. Última consolidação: {UltimaConsolidacao}",
+                    response.TotalRegistros, request.TipoConsolidacao, response.UltimaConsolidacao?.ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A");
 
                 return response;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao consultar consolidados por período: {DataInicial:yyyy-MM-dd} a {DataFinal:yyyy-MM-dd}",
-                    request.DataInicial, request.DataFinal);
+                _logger.LogError(ex, "Erro ao consultar consolidados por período e tipo: {DataInicial:yyyy-MM-dd} a {DataFinal:yyyy-MM-dd}, Tipo: {TipoConsolidacao}",
+                    request.DataInicial, request.DataFinal, request.TipoConsolidacao);
 
                 throw;
             }

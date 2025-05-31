@@ -26,17 +26,16 @@ namespace RProg.FluxoCaixa.Consolidado.Controllers
         {
             _mediator = mediator;
             _logger = logger;
-        }
-
-        /// <summary>
-        /// Consulta dados consolidados por período.
+        }        /// <summary>
+        /// Consulta dados consolidados por período e tipo de consolidação.
         /// </summary>
         /// <param name="dataInicial">Data inicial do período (obrigatório)</param>
         /// <param name="dataFinal">Data final do período (obrigatório)</param>
+        /// <param name="tipoConsolidacao">Tipo de consolidação: GERAL ou CATEGORIA (obrigatório)</param>
         /// <param name="cancellationToken">Token de cancelamento</param>
         /// <returns>Dados consolidados do período com última consolidação</returns>
         /// <response code="200">Consulta realizada com sucesso</response>
-        /// <response code="400">Parâmetros inválidos ou data final inferior à inicial</response>
+        /// <response code="400">Parâmetros inválidos, tipo de consolidação inválido ou data final inferior à inicial</response>
         /// <response code="500">Erro interno do servidor</response>
         [HttpGet]
         [ProducesResponseType(typeof(ConsolidadoPeriodoResponseDto), StatusCodes.Status200OK)]
@@ -45,31 +44,38 @@ namespace RProg.FluxoCaixa.Consolidado.Controllers
         public async Task<ActionResult<ConsolidadoPeriodoResponseDto>> ObterConsolidadosPorPeriodo(
             [FromQuery] DateTime dataInicial,
             [FromQuery] DateTime dataFinal,
-            CancellationToken cancellationToken = default)
-        {
-            _logger.LogInformation("Recebida solicitação para obter consolidados por período: {DataInicial:yyyy-MM-dd} a {DataFinal:yyyy-MM-dd}",
-                dataInicial, dataFinal); try
+            [FromQuery] string tipoConsolidacao,
+            CancellationToken cancellationToken = default)        {
+            _logger.LogInformation("Recebida solicitação para obter consolidados por período: {DataInicial:yyyy-MM-dd} a {DataFinal:yyyy-MM-dd}, Tipo: {TipoConsolidacao}",
+                dataInicial, dataFinal, tipoConsolidacao);
+
+            try
             {
-                var query = new ObterConsolidadosPorPeriodoQuery(dataInicial, dataFinal);
+                if (string.IsNullOrWhiteSpace(tipoConsolidacao))
+                {
+                    return BadRequest("Tipo de consolidação deve ser informado");
+                }
+
+                var query = new ObterConsolidadosPorPeriodoQuery(dataInicial, dataFinal, tipoConsolidacao);
 
                 var resultado = await _mediator.Send(query, cancellationToken);
 
-                _logger.LogInformation("Consulta de consolidados por período concluída com sucesso. Registros: {TotalRegistros}",
-                    resultado.TotalRegistros);
+                _logger.LogInformation("Consulta de consolidados por período concluída com sucesso. Tipo: {TipoConsolidacao}, Registros: {TotalRegistros}",
+                    tipoConsolidacao, resultado.TotalRegistros);
 
                 return Ok(resultado);
             }
             catch (ArgumentException ex)
             {
-                _logger.LogWarning(ex, "Parâmetros inválidos na consulta por período: {DataInicial:yyyy-MM-dd} a {DataFinal:yyyy-MM-dd}",
-                    dataInicial, dataFinal);
+                _logger.LogWarning(ex, "Parâmetros inválidos na consulta por período: {DataInicial:yyyy-MM-dd} a {DataFinal:yyyy-MM-dd}, Tipo: {TipoConsolidacao}",
+                    dataInicial, dataFinal, tipoConsolidacao);
                     
                 return BadRequest(ex.Message);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro interno ao consultar consolidados por período: {DataInicial:yyyy-MM-dd} a {DataFinal:yyyy-MM-dd}",
-                    dataInicial, dataFinal);
+                _logger.LogError(ex, "Erro interno ao consultar consolidados por período: {DataInicial:yyyy-MM-dd} a {DataFinal:yyyy-MM-dd}, Tipo: {TipoConsolidacao}",
+                    dataInicial, dataFinal, tipoConsolidacao);
 
                 return StatusCode(StatusCodes.Status500InternalServerError, "Erro interno do servidor");
             }

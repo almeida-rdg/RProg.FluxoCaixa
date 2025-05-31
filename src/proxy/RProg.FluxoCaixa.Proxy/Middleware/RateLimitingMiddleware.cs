@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using System.Net;
+using Microsoft.Extensions.Options;
+using RProg.FluxoCaixa.Proxy.Configuration;
 
 namespace RProg.FluxoCaixa.Proxy.Middleware;
 
@@ -12,27 +14,42 @@ public class RateLimitingMiddleware
     private readonly ILogger<RateLimitingMiddleware> _logger;
     private readonly ConcurrentDictionary<string, RateLimitInfo> _clientes;
     private readonly Timer _limpezaTimer;
+    private readonly RateLimitingOptions _opcoes;
 
-    // Configurações de rate limiting
-    private readonly int _limitePorMinuto = 61440; // 1024 requisições por segundo * 60 segundos
-    private readonly int _limitePorSegundo = 1024;
-    private readonly TimeSpan _janelaTempo = TimeSpan.FromMinutes(1);
-
-    public RateLimitingMiddleware(RequestDelegate proximo, ILogger<RateLimitingMiddleware> logger)
+    public RateLimitingMiddleware(
+        RequestDelegate proximo, 
+        ILogger<RateLimitingMiddleware> logger,
+        IOptions<RateLimitingOptions> opcoes)
     {
         _proximo = proximo;
         _logger = logger;
+        _opcoes = opcoes.Value;
         _clientes = new ConcurrentDictionary<string, RateLimitInfo>();
         
         // Timer para limpeza periódica dos dados antigos
-        _limpezaTimer = new Timer(LimparDadosAntigos, null, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
-    }
+        _limpezaTimer = new Timer(LimparDadosAntigos, null, _opcoes.IntervaloLimpeza, _opcoes.IntervaloLimpeza);
 
-    public async Task InvokeAsync(HttpContext contexto)
+        _logger.LogInformation("Rate Limiting configurado: {LimitePorMinuto} req/min, {LimitePorSegundo} req/seg, Habilitado: {Habilitado}",
+            _opcoes.LimitePorMinuto, _opcoes.LimitePorSegundo, _opcoes.Habilitado);
+    }    public async Task InvokeAsync(HttpContext contexto)
     {
-        var enderecoIp = ObterEnderecoIp(contexto);
-        var agora = DateTime.UtcNow;
+        // Se rate limiting está desabilitado, prosseguir normalmente
+        if (!_opcoes.Habilitado)
+        {
+            await _proximo(contexto);
+            return;
+        }
 
+        var enderecoIp = ObterEnderecoIp(contexto);
+        
+        // Verificar se IP está na lista de isentos
+        if (_opcoes.IpsIsentos.Contains(enderecoIp))
+        {
+            await _proximo(contexto);
+            return;
+        }
+
+        var agora = DateTime.UtcNow;
         var infoRateLimit = _clientes.GetOrAdd(enderecoIp, _ => new RateLimitInfo());
 
         // Verifica se o cliente está bloqueado
@@ -52,25 +69,26 @@ public class RateLimitingMiddleware
         }
 
         // Limpa requisições antigas
-        infoRateLimit.Requisicoes.RemoveAll(r => agora - r > _janelaTempo);
+        infoRateLimit.Requisicoes.RemoveAll(r => agora - r > _opcoes.JanelaTempo);
 
         // Verifica limite de requisições
-        if (infoRateLimit.Requisicoes.Count >= _limitePorMinuto)
+        if (infoRateLimit.Requisicoes.Count >= _opcoes.LimitePorMinuto)
         {
-            // Bloqueia o cliente por 5 minutos
+            // Bloqueia o cliente pelo tempo configurado
             infoRateLimit.EstaBloqueado = true;
-            infoRateLimit.BloqueadoAte = agora.AddMinutes(5);
+            infoRateLimit.BloqueadoAte = agora.Add(_opcoes.TempoBloqueio);
             
-            _logger.LogWarning("Cliente {EnderecoIp} excedeu limite de requisições e foi bloqueado", enderecoIp);
+            _logger.LogWarning("Cliente {EnderecoIp} excedeu limite de requisições e foi bloqueado por {TempoBloqueio}", 
+                enderecoIp, _opcoes.TempoBloqueio);
             
             contexto.Response.StatusCode = (int)HttpStatusCode.TooManyRequests;
-            await contexto.Response.WriteAsync("Limite de requisições excedido. Bloqueado por 5 minutos.");
+            await contexto.Response.WriteAsync($"Limite de requisições excedido. Bloqueado por {_opcoes.TempoBloqueio.TotalMinutes} minutos.");
             return;
         }
 
         // Verifica limite por segundo (último segundo)
         var requisicoesUltimoSegundo = infoRateLimit.Requisicoes.Count(r => agora - r < TimeSpan.FromSeconds(1));
-        if (requisicoesUltimoSegundo >= _limitePorSegundo)
+        if (requisicoesUltimoSegundo >= _opcoes.LimitePorSegundo)
         {
             _logger.LogWarning("Cliente {EnderecoIp} excedeu limite de requisições por segundo", enderecoIp);
             contexto.Response.StatusCode = (int)HttpStatusCode.TooManyRequests;
@@ -79,10 +97,12 @@ public class RateLimitingMiddleware
         }
 
         // Adiciona a requisição atual
-        infoRateLimit.Requisicoes.Add(agora);        // Adiciona headers informativos
-        contexto.Response.Headers["X-RateLimit-Limit"] = _limitePorMinuto.ToString();
-        contexto.Response.Headers["X-RateLimit-Remaining"] = Math.Max(0, _limitePorMinuto - infoRateLimit.Requisicoes.Count).ToString();
-        contexto.Response.Headers["X-RateLimit-Reset"] = ((DateTimeOffset)agora.Add(_janelaTempo)).ToUnixTimeSeconds().ToString();
+        infoRateLimit.Requisicoes.Add(agora);
+
+        // Adiciona headers informativos
+        contexto.Response.Headers["X-RateLimit-Limit"] = _opcoes.LimitePorMinuto.ToString();
+        contexto.Response.Headers["X-RateLimit-Remaining"] = Math.Max(0, _opcoes.LimitePorMinuto - infoRateLimit.Requisicoes.Count).ToString();
+        contexto.Response.Headers["X-RateLimit-Reset"] = ((DateTimeOffset)agora.Add(_opcoes.JanelaTempo)).ToUnixTimeSeconds().ToString();
 
         await _proximo(contexto);
     }
@@ -101,9 +121,7 @@ public class RateLimitingMiddleware
         }
 
         return enderecoIp ?? "unknown";
-    }
-
-    private void LimparDadosAntigos(object? state)
+    }    private void LimparDadosAntigos(object? state)
     {
         var agora = DateTime.UtcNow;
         var chavesParaRemover = new List<string>();
@@ -113,7 +131,7 @@ public class RateLimitingMiddleware
             var info = cliente.Value;
             
             // Remove requisições antigas
-            info.Requisicoes.RemoveAll(r => agora - r > _janelaTempo);
+            info.Requisicoes.RemoveAll(r => agora - r > _opcoes.JanelaTempo);
             
             // Remove clientes inativos há mais de 1 hora
             if (!info.Requisicoes.Any() && !info.EstaBloqueado)

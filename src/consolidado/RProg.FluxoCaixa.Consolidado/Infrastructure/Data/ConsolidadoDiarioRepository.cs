@@ -62,11 +62,62 @@ namespace RProg.FluxoCaixa.Consolidado.Infrastructure.Data
                     dataInicial, dataFinal, resultado?.ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A");
 
                 return resultado;
-            }
-            catch (Exception ex)
+            }            catch (Exception ex)
             {
                 _logger.LogError(ex, "Erro ao obter última data de atualização. Período: {DataInicial:yyyy-MM-dd} a {DataFinal:yyyy-MM-dd}",
                     dataInicial, dataFinal);
+                throw;
+            }
+        }
+
+        public async Task<IEnumerable<ConsolidadoDiario>> ObterPorPeriodoETipoAsync(DateTime dataInicial, DateTime dataFinal, string tipoConsolidacao, CancellationToken cancellationToken = default)
+        {
+            const string sql = @"
+                SELECT Id, Data, Categoria, TotalCreditos, TotalDebitos, SaldoLiquido, 
+                       QuantidadeLancamentos, DataCriacao, DataAtualizacao
+                FROM ConsolidadoDiario 
+                WHERE Data >= @DataInicial AND Data <= @DataFinal AND TipoConsolidacao = @TipoConsolidacao
+                ORDER BY Data ASC, CASE WHEN Categoria IS NULL THEN 0 ELSE 1 END, Categoria ASC";
+
+            try
+            {
+                var resultado = await _connection.QueryAsync<ConsolidadoDiario>(sql,
+                    new { DataInicial = dataInicial, DataFinal = dataFinal, TipoConsolidacao = tipoConsolidacao });
+
+                _logger.LogInformation("Consulta por período e tipo executada com sucesso. Período: {DataInicial:yyyy-MM-dd} a {DataFinal:yyyy-MM-dd}, Tipo: {TipoConsolidacao}, Registros: {Count}",
+                    dataInicial, dataFinal, tipoConsolidacao, resultado.Count());
+
+                return resultado;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao consultar consolidados por período e tipo. Período: {DataInicial:yyyy-MM-dd} a {DataFinal:yyyy-MM-dd}, Tipo: {TipoConsolidacao}",
+                    dataInicial, dataFinal, tipoConsolidacao);
+                throw;
+            }
+        }
+
+        public async Task<DateTime?> ObterUltimaDataAtualizacaoPorTipoAsync(DateTime dataInicial, DateTime dataFinal, string tipoConsolidacao, CancellationToken cancellationToken = default)
+        {
+            const string sql = @"
+                SELECT MAX(DataAtualizacao) 
+                FROM ConsolidadoDiario 
+                WHERE Data >= @DataInicial AND Data <= @DataFinal AND TipoConsolidacao = @TipoConsolidacao";
+
+            try
+            {
+                var resultado = await _connection.QuerySingleOrDefaultAsync<DateTime?>(sql,
+                    new { DataInicial = dataInicial, DataFinal = dataFinal, TipoConsolidacao = tipoConsolidacao });
+
+                _logger.LogDebug("Última data de atualização por tipo obtida para período {DataInicial:yyyy-MM-dd} a {DataFinal:yyyy-MM-dd}, Tipo: {TipoConsolidacao}: {UltimaAtualizacao}",
+                    dataInicial, dataFinal, tipoConsolidacao, resultado?.ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A");
+
+                return resultado;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao obter última data de atualização por tipo. Período: {DataInicial:yyyy-MM-dd} a {DataFinal:yyyy-MM-dd}, Tipo: {TipoConsolidacao}",
+                    dataInicial, dataFinal, tipoConsolidacao);
                 throw;
             }
         }

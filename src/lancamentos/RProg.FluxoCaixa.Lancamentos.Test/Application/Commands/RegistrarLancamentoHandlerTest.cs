@@ -46,7 +46,7 @@ namespace RProg.FluxoCaixa.Lancamentos.Test.Application.Commands
             // Assert - Então deve registrar o lançamento com sucesso
             resultado.Should().Be(lancamentoId);
             _lancamentoRepositoryMock.Verify(x => x.CriarLancamentoAsync(It.IsAny<Lancamento>()), Times.Once);
-            _mensageriaPublisherMock.Verify(x => x.PublicarMensagemAsync(comando), Times.Once);
+            _mensageriaPublisherMock.Verify(x => x.PublicarMensagemAsync(It.Is<Lancamento>(o => o.Id == lancamentoId)), Times.Once);
         }
         [Fact]
         public async Task Handle_DadoValorZero_DeveLancarExcecaoRegraDeNegocio()
