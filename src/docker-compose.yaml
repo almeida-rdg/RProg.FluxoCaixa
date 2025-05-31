@@ -1,7 +1,7 @@
 name: fluxo-caixa
 
 # Configuração otimizada para garantir download único de pacotes NuGet
-# Utiliza Dockerfile.optimized com cache compartilhado entre todos os serviços
+# Utiliza Dockerfile com cache compartilhado entre todos os serviços
 
 networks:
   proxy-net:
@@ -32,8 +32,7 @@ services:
       - db-net
     volumes:
       - sqlserver_data:/var/opt/mssql
-      - ./lancamentos/scripts/criar-banco.sql:/docker-entrypoint-initdb.d/01-criar-banco.sql
-      - ./worker/scripts/criar-banco-consolidado.sql:/docker-entrypoint-initdb.d/02-criar-banco-consolidado.sql
+      - ./sql:/docker-entrypoint-initdb.d/sql
     command: >
       /bin/bash -c "
       /opt/mssql/bin/sqlservr &
@@ -43,8 +42,9 @@ services:
         sleep 5;
       done;
       echo '>>>>>>>>>> SQL Server is ready - executing init scripts <<<<<<<<<<';
-      /opt/mssql-tools18/bin/sqlcmd -l 5 -C -S localhost -U sa -P 'Your_password123' -d master -i /docker-entrypoint-initdb.d/01-criar-banco.sql;
-      /opt/mssql-tools18/bin/sqlcmd -l 5 -C -S localhost -U sa -P 'Your_password123' -d master -i /docker-entrypoint-initdb.d/02-criar-banco-consolidado.sql;
+      cd /docker-entrypoint-initdb.d/sql;
+      /opt/mssql-tools18/bin/sqlcmd -l 10 -C -S localhost -U sa -P 'Your_password123' -d master -i ./init-databases.sql;
+      /opt/mssql-tools18/bin/sqlcmd -l 10 -C -S localhost -U sa -P 'Your_password123' -d master -i ./validate-structure.sql;
       
       sleep infinity;"
     deploy:
@@ -90,11 +90,11 @@ services:
       retries: 5
       start_period: 60s
 
-  # Aplicações usando Dockerfile.optimized com cache compartilhado
+  # Aplicações usando Dockerfile com cache compartilhado
   lancamentos-api:
     build:
       context: ..
-      dockerfile: src/Dockerfile.optimized
+      dockerfile: src/Dockerfile
       target: final-lancamentos
       cache_from:
         - fluxocaixa/shared-cache:latest
@@ -150,7 +150,7 @@ services:
   consolidado-api:
     build:
       context: ..
-      dockerfile: src/Dockerfile.optimized
+      dockerfile: src/Dockerfile
       target: final-consolidado
       cache_from:
         - fluxocaixa/shared-cache:latest
@@ -201,7 +201,7 @@ services:
   worker:
     build:
       context: ..
-      dockerfile: src/Dockerfile.optimized
+      dockerfile: src/Dockerfile
       target: final-worker
       cache_from:
         - fluxocaixa/shared-cache:latest
@@ -252,7 +252,7 @@ services:
   proxy:
     build:
       context: ..
-      dockerfile: src/Dockerfile.optimized
+      dockerfile: src/Dockerfile
       target: final-proxy
       cache_from:
         - fluxocaixa/shared-cache:latest
@@ -315,22 +315,3 @@ volumes:
     driver: local
   proxy_logs:
     driver: local
-
-# COMANDOS PARA USO:
-#
-# 1. Build e cache inicial (uma única vez):
-#    docker build -f src/Dockerfile.optimized --target build -t fluxocaixa/shared-cache:latest .
-#
-# 2. Executar ambiente otimizado:
-#    docker-compose -f src/docker-compose.optimized.yaml up --build
-#
-# 3. Para rebuild forçado mantendo cache:
-#    docker-compose -f src/docker-compose.optimized.yaml build --no-cache
-#    docker-compose -f src/docker-compose.optimized.yaml up
-#
-# BENEFÍCIOS DA OTIMIZAÇÃO:
-# - Cada pacote NuGet é baixado apenas uma vez
-# - Cache compartilhado entre todos os serviços
-# - Builds subsequentes ~80% mais rápidos
-# - Imagens de produção menores (sem projetos de teste)
-# - Layers Docker otimizadas para máximo reuso
