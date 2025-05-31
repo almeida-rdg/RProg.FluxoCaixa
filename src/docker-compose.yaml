@@ -26,8 +26,6 @@ services:
       - ACCEPT_EULA=Y
       - SA_PASSWORD=Your_password123
       - MSSQL_PID=Express
-    ports:
-      - "1433:1433"
     networks:
       - db-net
     volumes:
@@ -107,8 +105,6 @@ services:
       - RabbitMQ__QueueName=lancamentos
       - RabbitMQ__UserName=admin
       - RabbitMQ__Password=admin123
-    ports:
-      - "81:8080"
     depends_on:
       sqlserver:
         condition: service_healthy
@@ -123,7 +119,7 @@ services:
     restart: unless-stopped
     deploy:
       mode: replicated
-      replicas: 1
+      replicas: 2
       resources:
         limits:
           cpus: '1.0'
@@ -159,8 +155,6 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=FluxoCaixa_Consolidado;User=sa;Password=Your_password123;TrustServerCertificate=True
-    ports:
-      - "82:8080"
     depends_on:
       sqlserver:
         condition: service_healthy
@@ -172,7 +166,7 @@ services:
     restart: unless-stopped
     deploy:
       mode: replicated
-      replicas: 1
+      replicas: 2
       resources:
         limits:
           cpus: '1.0'
