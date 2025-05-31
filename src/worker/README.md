@@ -1,36 +1,17 @@
 # RProg.FluxoCaixa.Worker
 
-## ✅ STATUS DO PROJETO: IMPLEMENTAÇÃO COMPLETA
+Worker responsável pela consolidação diária de lançamentos do sistema de fluxo de caixa, processamento idempotente de mensagens e integração com RabbitMQ e SQL Server.
 
-**🎉 PRONTO PARA TESTE E PRODUÇÃO**
+## Características
 
-✅ **Todas as funcionalidades implementadas com sucesso:**
-- ✅ Escuta de múltiplas filas RabbitMQ com prefixo configurável
-- ✅ Processamento idempotente de lançamentos (evita duplicação)
-- ✅ Consolidação diária geral e por categoria
-- ✅ Persistência em banco SQL Server com Dapper
-- ✅ Logs estruturados com Serilog
-- ✅ Containerização Docker completa
-- ✅ Reconexão automática RabbitMQ
-- ✅ Configuração via appsettings e variáveis de ambiente
-
-✅ **Status da Compilação:** SUCESSO (sem erros)
-✅ **Compatibilidade:** RabbitMQ.Client 7.1.2, .NET 8.0
-✅ **Docker:** Pronto para execução
-✅ **Testes:** Estrutura básica implementada
-
----
-
-Worker responsável pela consolidação diária de lançamentos do sistema de fluxo de caixa.
-
-## Funcionalidades
-
-- ✅ **Processamento idempotente**: Evita processamento duplicado de mensagens
-- ✅ **Consolidação automática**: Gera consolidações diárias gerais e por categoria
-- ✅ **Múltiplas filas**: Suporta múltiplas filas RabbitMQ com prefixo configurável
-- ✅ **Recuperação automática**: Reconexão automática em caso de falha
-- ✅ **Logging estruturado**: Logs detalhados com Serilog
-- ✅ **Múltiplas instâncias**: Suporte a execução em múltiplas instâncias
+- **Processamento idempotente**: evita duplicidade de lançamentos
+- **Consolidação automática**: geral e por categoria
+- **Escuta de múltiplas filas RabbitMQ** com prefixo configurável
+- **Persistência em SQL Server** via Dapper
+- **Logs estruturados** com Serilog (console e arquivo)
+- **Recuperação automática** de conexão RabbitMQ
+- **Configuração via appsettings e variáveis de ambiente**
+- **Containerização Docker pronta para produção**
 
 ## Estrutura do Projeto
 
@@ -38,24 +19,13 @@ Worker responsável pela consolidação diária de lançamentos do sistema de fl
 RProg.FluxoCaixa.Worker/
 ├── Domain/
 │   ├── Entities/
-│   │   ├── ConsolidadoDiario.cs      # Entidade de consolidação
-│   │   └── LancamentoProcessado.cs   # Controle de idempotência
 │   ├── DTOs/
-│   │   └── LancamentoDto.cs          # DTO para lançamentos
 │   └── Services/
-│       └── IConsolidacaoService.cs   # Interface do serviço
 ├── Infrastructure/
 │   ├── Data/
-│   │   ├── IConsolidadoRepository.cs
-│   │   ├── ConsolidadoRepository.cs
-│   │   ├── ILancamentoProcessadoRepository.cs
-│   │   └── LancamentoProcessadoRepository.cs
 │   └── Services/
-│       ├── IRabbitMqService.cs
-│       └── RabbitMqService.cs
 ├── Services/
-│   └── ConsolidacaoService.cs        # Implementação do serviço
-└── Worker.cs                         # Worker principal
+└── Worker.cs
 ```
 
 ## Configuração
@@ -65,57 +35,59 @@ RProg.FluxoCaixa.Worker/
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Server=localhost,1433;Database=FluxoCaixa_Consolidado;User Id=sa;Password=SuaSenhaForte123!;TrustServerCertificate=true"
+    "DefaultConnection": "Server=localhost;Database=FluxoCaixa_Consolidado;Trusted_Connection=true;TrustServerCertificate=true;"
   },
   "RabbitMQ": {
     "HostName": "localhost",
-    "Port": 5672,
     "UserName": "guest",
     "Password": "guest",
-    "VirtualHost": "/",
-    "PrefixoFila": "lancamento",
-    "Filas": [
-      "lancamento.geral",
-      "lancamento.prioritaria"
+    "QueuePrefix": "fluxo-caixa"
+  },
+  "Serilog": {
+    "MinimumLevel": "Information",
+    "WriteTo": [
+      { "Name": "Console" },
+      { "Name": "File", "Args": { "path": "logs/worker-.txt", "rollingInterval": "Day" } }
     ]
   }
 }
 ```
 
-## Banco de Dados
+### Banco de Dados
 
-### Criação da Estrutura
-
-Execute o script SQL:
+Execute o script SQL para criar as tabelas:
 
 ```bash
 sqlcmd -S localhost -U sa -P "SuaSenhaForte123!" -i scripts/criar-banco-consolidado.sql
 ```
 
-### Tabelas Criadas
-
+Tabelas criadas:
 - **ConsolidadoDiario**: Armazena consolidações diárias
 - **LancamentoProcessado**: Controle de idempotência
 
 ## Execução
 
-### 1. Via Docker Compose (Recomendado)
+### Desenvolvimento Local (.NET)
+```cmd
+# Compilar
+dotnet build
 
-```bash
+# Executar
+dotnet run --project src/worker/RProg.FluxoCaixa.Worker/RProg.FluxoCaixa.Worker.csproj
+
+# Executar testes
+dotnet test src/worker/RProg.FluxoCaixa.Worker.Test/
+```
+
+### Docker
+
+```cmd
 cd src/
 docker-compose up worker
 ```
 
-### 2. Via .NET CLI
-
-```bash
-cd src/worker/RProg.FluxoCaixa.Worker/
-dotnet run
-```
-
-### 3. Via Docker Standalone
-
-```bash
+#### Docker Standalone
+```cmd
 cd src/
 docker build -t rprog-fluxocaixa-worker -f worker/Dockerfile .
 docker run -e ConnectionStrings__DefaultConnection="..." rprog-fluxocaixa-worker
@@ -123,140 +95,61 @@ docker run -e ConnectionStrings__DefaultConnection="..." rprog-fluxocaixa-worker
 
 ## Funcionamento
 
-### Fluxo de Processamento
-
-1. **Escuta**: Worker conecta-se ao RabbitMQ e escuta filas com prefixo configurado
-2. **Recebimento**: Mensagens são recebidas e deserializadas para `LancamentoDto`
+1. **Escuta**: Conecta ao RabbitMQ e escuta filas com prefixo configurado
+2. **Recebimento**: Mensagens são deserializadas para DTOs
 3. **Idempotência**: Verifica se o lançamento já foi processado
 4. **Consolidação**: Atualiza consolidações geral e por categoria
-5. **Confirmação**: Marca mensagem como processada no RabbitMQ
+5. **Confirmação**: Marca mensagem como processada
 
 ### Exemplo de Mensagem RabbitMQ
 
 ```json
 {
   "id": "123e4567-e89b-12d3-a456-426614174000",
-  "valor": 150.75,
-  "tipo": "credito",
-  "data": "2024-12-19T10:30:00",
-  "categoria": "vendas",
   "descricao": "Venda produto XYZ"
 }
 ```
 
-### Consolidações Geradas
-
-Para cada data, são criadas:
-
-- **Consolidação Geral** (`categoria = null`)
-  - Total de créditos
-  - Total de débitos
-  - Saldo líquido
-  - Quantidade de lançamentos
-
-- **Consolidação por Categoria** (para cada categoria)
-  - Totais específicos da categoria
-  - Saldo líquido da categoria
-  - Quantidade de lançamentos da categoria
-
 ## Monitoramento
 
-### Logs
+- **Logs**: Console e arquivo `logs/worker-*.txt`
+- **Métricas**: Mensagens processadas, erros, tempo de resposta
+- **Health Check**: Pode ser verificado via logs ou comandos Docker
 
-Logs são gerados em:
-- Console (durante desenvolvimento)
-- Arquivo `logs/worker-*.txt` (em produção)
+## Dependências
 
-### Métricas
+- **.NET 8.0**
+- **Dapper**
+- **Microsoft.Data.SqlClient**
+- **RabbitMQ.Client**
+- **Serilog.AspNetCore**
+- **Serilog.Sinks.Console**
+- **Serilog.Sinks.File**
+- **System.Text.Json**
+- **System.ComponentModel.Annotations**
 
-- Mensagens processadas
-- Erros de processamento
-- Tempo de resposta
-- Conexões RabbitMQ
+## Padrões e Boas Práticas
 
-### Health Check
+- Seguir padrões de codificação C# e nomenclatura conforme instruções do repositório
+- Utilizar injeção de dependência sempre que possível
+- Separar código em métodos coesos e pequenos
+- Utilizar comentários XML e explicativos para regras de negócio e integrações
+- Facilitar a criação de testes unitários
 
-O worker inclui health check básico:
+## Testes
 
-```bash
-docker exec fluxo-worker dotnet --info
-```
+- Testes unitários obrigatórios para todo novo código
+- Utilizar xUnit, Moq, Bogus e FluentAssertions
+- Estruturar testes com AAA (Arrange, Act, Assert) e Given/When/Then
+- Mocks para dependências externas
+- Projeto de testes: `RProg.FluxoCaixa.Worker.Test`
 
-## Desenvolvimento
+## Links Úteis
 
-### Executar Testes
+- [Especificação de arquitetura](../../docs/documento-arquitetural.md)
+- [Diagrama de containers](../../docs/C4DiagramaContainer.png)
+- [Diagrama de contexto](../../docs/C4DiagramaContexto.png)
 
-```bash
-cd src/worker/RProg.FluxoCaixa.Worker.Test/
-dotnet run
-```
+---
 
-### Debugging
-
-1. Configure connection strings locais
-2. Inicie RabbitMQ local
-3. Execute via IDE ou `dotnet run`
-
-### Dependências
-
-- .NET 8.0
-- RabbitMQ.Client 7.1.2
-- Dapper 2.1.66
-- Microsoft.Data.SqlClient 6.0.2
-- Serilog 8.0.1
-
-## Arquitetura
-
-### Padrões Utilizados
-
-- **Repository Pattern**: Acesso a dados
-- **Dependency Injection**: Inversão de controle
-- **Background Service**: Execução contínua
-- **Idempotent Processing**: Segurança de processamento
-
-### Escalabilidade
-
-- Múltiplas instâncias do worker podem executar simultaneamente
-- Cada instância processa mensagens independentemente
-- Controle de idempotência evita processamento duplicado
-- Load balancing automático via RabbitMQ
-
-## Troubleshooting
-
-### Problemas Comuns
-
-1. **Erro de Conexão SQL Server**
-   - Verificar connection string
-   - Verificar se o SQL Server está executando
-   - Verificar permissões do usuário
-
-2. **Erro de Conexão RabbitMQ**
-   - Verificar se RabbitMQ está executando
-   - Verificar credenciais
-   - Verificar portas (5672, 15672)
-
-3. **Mensagens não são processadas**
-   - Verificar se as filas existem
-   - Verificar se as mensagens estão no formato correto
-   - Verificar logs do worker
-
-### Logs de Debug
-
-Para habilitar logs detalhados:
-
-```json
-{
-  "Serilog": {
-    "MinimumLevel": {
-      "Default": "Debug"
-    }
-  }
-}
-```
-
-## Contribuição
-
-1. Implemente novas funcionalidades em branches separados
-2. Mantenha testes atualizados
-3. Siga os padrões de arquitetura existentes
-4. Documente mudanças significativas
+> Para dúvidas sobre padrões, consulte o arquivo `.github/instructions/copilot.instructions.md`.

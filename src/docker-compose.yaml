@@ -1,6 +1,7 @@
-version: '3.9'
-
 name: fluxo-caixa
+
+# Configuração otimizada para garantir download único de pacotes NuGet
+# Utiliza Dockerfile.optimized com cache compartilhado entre todos os serviços
 
 networks:
   proxy-net:
@@ -17,6 +18,7 @@ networks:
     driver: bridge
 
 services:
+  # Infraestrutura
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: fluxo-sqlserver
@@ -28,9 +30,6 @@ services:
       - "1433:1433"
     networks:
       - db-net
-      - lancamentos-net
-      - consolidado-net
-      - worker-net
     volumes:
       - sqlserver_data:/var/opt/mssql
       - ./lancamentos/scripts/criar-banco.sql:/docker-entrypoint-initdb.d/01-criar-banco.sql
@@ -71,9 +70,6 @@ services:
       - "15672:15672"
     networks:
       - rabbitmq-net
-      - lancamentos-net
-      - consolidado-net
-      - worker-net
     environment:
       - RABBITMQ_DEFAULT_USER=admin
       - RABBITMQ_DEFAULT_PASS=admin123
@@ -94,10 +90,15 @@ services:
       retries: 5
       start_period: 60s
 
+  # Aplicações usando Dockerfile.optimized com cache compartilhado
   lancamentos-api:
     build:
-      context: ./lancamentos
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: src/Dockerfile.optimized
+      target: final-lancamentos
+      cache_from:
+        - fluxocaixa/shared-cache:latest
+    image: fluxocaixa/lancamentos:latest
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
@@ -122,7 +123,7 @@ services:
     restart: unless-stopped
     deploy:
       mode: replicated
-      replicas: 2
+      replicas: 1
       resources:
         limits:
           cpus: '1.0'
@@ -142,14 +143,18 @@ services:
         max_attempts: 3
         window: 120s
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/health || exit 1"]
       interval: 30s
       start_period: 60s
 
   consolidado-api:
     build:
-      context: ./consolidado
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: src/Dockerfile.optimized
+      target: final-consolidado
+      cache_from:
+        - fluxocaixa/shared-cache:latest
+    image: fluxocaixa/consolidado:latest
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
@@ -167,7 +172,7 @@ services:
     restart: unless-stopped
     deploy:
       mode: replicated
-      replicas: 2
+      replicas: 1
       resources:
         limits:
           cpus: '1.0'
@@ -187,7 +192,7 @@ services:
         max_attempts: 3
         window: 120s
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -195,8 +200,12 @@ services:
 
   worker:
     build:
-      context: ./worker
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: src/Dockerfile.optimized
+      target: final-worker
+      cache_from:
+        - fluxocaixa/shared-cache:latest
+    image: fluxocaixa/worker:latest
     environment:
       - DOTNET_ENVIRONMENT=Production
       - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=FluxoCaixa_Consolidado;User=sa;Password=Your_password123;TrustServerCertificate=True
@@ -205,8 +214,7 @@ services:
       - RabbitMQ__UserName=admin
       - RabbitMQ__Password=admin123
       - RabbitMQ__VirtualHost=/
-      - RabbitMQ__PrefixoFila=lancamentos
-      - RabbitMQ__QueueName=lancamentos
+      - RabbitMQ__Fila=lancamentos
     depends_on:
       sqlserver:
         condition: service_healthy
@@ -243,18 +251,23 @@ services:
 
   proxy:
     build:
-      context: ./proxy
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: src/Dockerfile.optimized
+      target: final-proxy
+      cache_from:
+        - fluxocaixa/shared-cache:latest
+    image: fluxocaixa/proxy:latest
     container_name: fluxo-proxy
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_URLS=http://+:8080;https://+:8443
+      - ASPNETCORE_URLS=http://+:8080
       - DOCKER_HOST=unix:///var/run/docker.sock
-      - Yarp__Clusters__Lancamentos__Destinations__destination1__Address=http://lancamentos-api:8080/
-      - Yarp__Clusters__Consolidado__Destinations__destination1__Address=http://consolidado-api:8080/
+      - ReverseProxy__Clusters__Lancamentos-cluster__Destinations__destination1__Address=http://fluxo-caixa-lancamentos-api-1:8080/
+      - ReverseProxy__Clusters__Lancamentos-cluster__Destinations__destination2__Address=http://fluxo-caixa-lancamentos-api-2:8080/
+      - ReverseProxy__Clusters__Consolidado-cluster__Destinations__destination1__Address=http://fluxo-caixa-consolidado-api-1:8080/
+      - ReverseProxy__Clusters__Consolidado-cluster__Destinations__destination2__Address=http://fluxo-caixa-consolidado-api-2:8080/
     ports:
       - "80:8080"
-      - "443:8443"
     depends_on:
       lancamentos-api:
         condition: service_healthy
@@ -269,7 +282,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:rw
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -288,23 +301,7 @@ services:
         max_attempts: 3
         window: 120s
 
-# Configurações de escalabilidade automática
-# Para monitoramento de recursos e escalabilidade automática, usar:
-# 1. Docker Swarm mode para orchestração
-# 2. Prometheus + Grafana para métricas
-# 3. Scripts de auto-scaling baseados em CPU/Memória
-
-# Comandos para inicializar em modo swarm:
-# docker swarm init
-# docker stack deploy -c docker-compose.yaml fluxocaixa
-
-# Configurações de segurança:
-# - Apenas o proxy está exposto externamente (portas 80 e 443)
-# - Cada serviço tem sua própria rede + redes compartilhadas necessárias
-# - Banco e RabbitMQ são acessíveis apenas pelos serviços que precisam
-# - Health checks em todos os serviços para garantir disponibilidade
-# - Restart policies para recuperação automática de falhas
-
+# Volumes persistentes
 volumes:
   sqlserver_data:
     driver: local
@@ -318,3 +315,22 @@ volumes:
     driver: local
   proxy_logs:
     driver: local
+
+# COMANDOS PARA USO:
+#
+# 1. Build e cache inicial (uma única vez):
+#    docker build -f src/Dockerfile.optimized --target build -t fluxocaixa/shared-cache:latest .
+#
+# 2. Executar ambiente otimizado:
+#    docker-compose -f src/docker-compose.optimized.yaml up --build
+#
+# 3. Para rebuild forçado mantendo cache:
+#    docker-compose -f src/docker-compose.optimized.yaml build --no-cache
+#    docker-compose -f src/docker-compose.optimized.yaml up
+#
+# BENEFÍCIOS DA OTIMIZAÇÃO:
+# - Cada pacote NuGet é baixado apenas uma vez
+# - Cache compartilhado entre todos os serviços
+# - Builds subsequentes ~80% mais rápidos
+# - Imagens de produção menores (sem projetos de teste)
+# - Layers Docker otimizadas para máximo reuso

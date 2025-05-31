@@ -1,19 +1,40 @@
 # RProg.FluxoCaixa.Consolidado API
 
-API para consulta de dados consolidados por período e categoria utilizando padrão CQRS.
+API para consulta de dados consolidados por período e categoria utilizando padrão CQRS, seguindo Clean Architecture e boas práticas de desenvolvimento .NET.
 
 ## Características
 
-- ✅ **Padrão CQRS** com MediatR para queries otimizadas
-- ✅ **Validação de período** - data final não pode ser inferior à inicial  
-- ✅ **Último horário de consolidação** retornado em cada consulta
-- ✅ **Performance otimizada** com queries SQL diretas via Dapper
-- ✅ **Documentação XML** completa para controllers e DTOs
-- ✅ **Configurações** centralizadas no appsettings.json
-- ✅ **Logging** estruturado com Serilog
-- ✅ **Testes unitários** com xUnit, Moq e FluentAssertions
+- **Padrão CQRS** com MediatR para queries otimizadas
+- **Validação de período** (data final não pode ser inferior à inicial)
+- **Último horário de consolidação** retornado em cada consulta
+- **Performance otimizada** com queries SQL diretas via Dapper
+- **Documentação XML** completa para controllers e DTOs
+- **Configurações** centralizadas no appsettings.json
+- **Logging** estruturado com Serilog
+- **Testes unitários** com xUnit, Moq e FluentAssertions
 
-## Endpoints
+## Arquitetura
+
+O projeto segue os princípios de Clean Architecture:
+
+```
+Domain/
+├── Entities/           # Entidades de domínio
+Application/
+├── DTOs/              # Data Transfer Objects
+├── Queries/           # Queries CQRS com handlers
+Infrastructure/
+├── Data/              # Repositórios e acesso a dados
+Controllers/           # Controllers da API REST
+```
+
+Principais padrões e práticas:
+- SOLID, KISS, DRY
+- Injeção de dependência
+- Repositório, CQRS, Mediator
+- Logging estruturado
+
+## Endpoints da API
 
 ### GET /api/consolidado
 Consulta dados consolidados por período.
@@ -40,7 +61,7 @@ Consulta dados consolidados por período e categoria específica.
 GET /api/consolidado/categoria/ALIMENTACAO?dataInicial=2024-01-01&dataFinal=2024-01-31
 ```
 
-## Resposta
+## Exemplo de Resposta
 
 ```json
 {
@@ -71,7 +92,7 @@ Configure a connection string no `appsettings.json`:
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Server=localhost;Database=RProg_FluxoCaixa;Trusted_Connection=true;TrustServerCertificate=true;"
+    "DefaultConnection": "Server=localhost;Database=FluxoCaixa_Consolidado;Trusted_Connection=true;TrustServerCertificate=true;"
   }
 }
 ```
@@ -133,21 +154,6 @@ docker-compose up --build
 
 📋 **Documentação Docker detalhada:** [DOCKER.md](DOCKER.md)
 
-## Arquitetura
-
-O projeto segue os princípios de Clean Architecture:
-
-```
-Domain/
-├── Entities/           # Entidades de domínio
-Application/
-├── DTOs/              # Data Transfer Objects
-├── Queries/           # Queries CQRS com handlers
-Infrastructure/
-├── Data/              # Repositórios e acesso a dados
-Controllers/           # Controllers da API REST
-```
-
 ## Dependências
 
 - **.NET 8.0**
@@ -163,3 +169,32 @@ Controllers/           # Controllers da API REST
 - Categoria não pode ser vazia quando especificada na rota
 - Parâmetros de data são obrigatórios
 - Tratamento de exceções com logging detalhado
+
+## Padrões e Boas Práticas
+
+- Seguir padrões de codificação C# e nomenclatura conforme instruções do repositório
+- Utilizar injeção de dependência sempre que possível
+- Separar código em métodos coesos e pequenos
+- Utilizar comentários XML e explicativos para regras de negócio e integrações
+- Utilizar princípios SOLID, KISS e DRY
+- Utilizar repositórios para abstração de dados
+- Facilitar a criação de testes unitários
+
+## Testes
+
+- Testes unitários obrigatórios para todo novo código
+- Utilizar xUnit, Moq, Bogus e FluentAssertions
+- Estruturar testes com AAA (Arrange, Act, Assert) e Given/When/Then
+- Mocks para dependências externas
+- Projeto de testes: `RProg.FluxoCaixa.Consolidado.Test`
+
+## Links Úteis
+
+- [Documentação Docker detalhada](DOCKER.md)
+- [Especificação de arquitetura](../../docs/documento-arquitetural.md)
+- [Diagrama de containers](../../docs/C4DiagramaContainer.png)
+- [Diagrama de contexto](../../docs/C4DiagramaContexto.png)
+
+---
+
+> Para dúvidas sobre padrões, consulte o arquivo `.github/instructions/copilot.instructions.md`.
