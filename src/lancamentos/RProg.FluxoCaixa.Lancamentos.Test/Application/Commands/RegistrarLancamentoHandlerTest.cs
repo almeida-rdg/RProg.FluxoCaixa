@@ -268,7 +268,7 @@ namespace RProg.FluxoCaixa.Lancamentos.Test.Application.Commands
             {
                 Valor = 100,
                 Tipo = TipoLancamento.Credito,
-                Data = DateTime.Now.AddDays(-1),
+                Data = DateTime.UtcNow.AddDays(-1),
                 Categoria = _faker.Commerce.Categories(1)[0],
                 Descricao = _faker.Commerce.ProductDescription()
             };

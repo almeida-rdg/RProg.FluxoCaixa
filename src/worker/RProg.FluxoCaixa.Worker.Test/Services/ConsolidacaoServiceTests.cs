@@ -40,7 +40,7 @@ namespace RProg.FluxoCaixa.Worker.Test.Services
             {
                 Id = 1,
                 Valor = 100.00m,
-                Data = DateTime.Today,
+                Data = DateTime.UtcNow.Date,
                 Categoria = "Alimentação",
                 Tipo = 2 // Crédito
             };
@@ -70,33 +70,33 @@ namespace RProg.FluxoCaixa.Worker.Test.Services
             {
                 Id = 2,
                 Valor = 150.00m,
-                Data = DateTime.Today,
+                Data = DateTime.UtcNow.Date,
                 Categoria = "Transporte",
                 Tipo = 2 // Crédito
             };
 
             var consolidadoGeral = new ConsolidadoDiario
             {
-                Data = DateTime.Today,
+                Data = DateTime.UtcNow.Date,
                 Categoria = null,
                 TotalCreditos = 0,
                 TotalDebitos = 0,
                 SaldoLiquido = 0,
                 QuantidadeLancamentos = 0,
-                DataCriacao = DateTime.Now,
-                DataAtualizacao = DateTime.Now
+                DataCriacao = DateTime.UtcNow,
+                DataAtualizacao = DateTime.UtcNow
             };
             
             var consolidadoCategoria = new ConsolidadoDiario
             {
-                Data = DateTime.Today,
+                Data = DateTime.UtcNow.Date,
                 Categoria = "Transporte",
                 TotalCreditos = 0,
                 TotalDebitos = 0,
                 SaldoLiquido = 0,
                 QuantidadeLancamentos = 0,
-                DataCriacao = DateTime.Now,
-                DataAtualizacao = DateTime.Now
+                DataCriacao = DateTime.UtcNow,
+                DataAtualizacao = DateTime.UtcNow
             };
 
             _mockLancamentoProcessadoRepository
@@ -136,33 +136,33 @@ namespace RProg.FluxoCaixa.Worker.Test.Services
             {
                 Id = 3,
                 Valor = 500.00m,
-                Data = DateTime.Today,
+                Data = DateTime.UtcNow.Date,
                 Categoria = "Vendas",
                 Tipo = 2 // Crédito
             };
 
             var consolidadoGeral = new ConsolidadoDiario
             {
-                Data = DateTime.Today,
+                Data = DateTime.UtcNow.Date,
                 Categoria = null,
                 TotalCreditos = 0,
                 TotalDebitos = 0,
                 SaldoLiquido = 0,
                 QuantidadeLancamentos = 0,
-                DataCriacao = DateTime.Now,
-                DataAtualizacao = DateTime.Now
+                DataCriacao = DateTime.UtcNow,
+                DataAtualizacao = DateTime.UtcNow
             };
             
             var consolidadoCategoria = new ConsolidadoDiario
             {
-                Data = DateTime.Today,
+                Data = DateTime.UtcNow.Date,
                 Categoria = "Vendas",
                 TotalCreditos = 0,
                 TotalDebitos = 0,
                 SaldoLiquido = 0,
                 QuantidadeLancamentos = 0,
-                DataCriacao = DateTime.Now,
-                DataAtualizacao = DateTime.Now
+                DataCriacao = DateTime.UtcNow,
+                DataAtualizacao = DateTime.UtcNow
             };
 
             _mockLancamentoProcessadoRepository
@@ -194,33 +194,33 @@ namespace RProg.FluxoCaixa.Worker.Test.Services
             {
                 Id = 4,
                 Valor = -250.00m,
-                Data = DateTime.Today,
+                Data = DateTime.UtcNow.Date,
                 Categoria = "Despesas",
                 Tipo = 1 // Débito
             };
 
             var consolidadoGeral = new ConsolidadoDiario
             {
-                Data = DateTime.Today,
+                Data = DateTime.UtcNow.Date,
                 Categoria = null,
                 TotalCreditos = 0,
                 TotalDebitos = 0,
                 SaldoLiquido = 0,
                 QuantidadeLancamentos = 0,
-                DataCriacao = DateTime.Now,
-                DataAtualizacao = DateTime.Now
+                DataCriacao = DateTime.UtcNow,
+                DataAtualizacao = DateTime.UtcNow
             };
             
             var consolidadoCategoria = new ConsolidadoDiario
             {
-                Data = DateTime.Today,
+                Data = DateTime.UtcNow.Date,
                 Categoria = "Despesas",
                 TotalCreditos = 0,
                 TotalDebitos = 0,
                 SaldoLiquido = 0,
                 QuantidadeLancamentos = 0,
-                DataCriacao = DateTime.Now,
-                DataAtualizacao = DateTime.Now
+                DataCriacao = DateTime.UtcNow,
+                DataAtualizacao = DateTime.UtcNow
             };
 
             _mockLancamentoProcessadoRepository
@@ -283,7 +283,7 @@ namespace RProg.FluxoCaixa.Worker.Test.Services
             {
                 Id = 6,
                 Valor = 100.00m,
-                Data = DateTime.Today,
+                Data = DateTime.UtcNow.Date,
                 Tipo = 2 // Crédito
             };
 

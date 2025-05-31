@@ -28,6 +28,116 @@ RProg.FluxoCaixa.Worker/
 └── Worker.cs
 ```
 
+### Fluxo de Consolidação via Worker
+
+```mermaid
+sequenceDiagram
+    participant RabbitMQ as RabbitMQ
+    participant Worker as Worker Service
+    participant RabbitMqService as RabbitMqService
+    participant ConsolidacaoService as ConsolidacaoService
+    participant Repository as ConsolidadoRepository
+    participant DB as SQL Server
+
+    Worker->>RabbitMqService: IniciarEscutaAsync()
+    RabbitMqService->>RabbitMQ: Conectar e declarar fila
+    RabbitMQ-->>RabbitMqService: Connection established
+    
+    loop Processamento contínuo
+        RabbitMQ->>RabbitMqService: Mensagem recebida
+        RabbitMqService->>RabbitMqService: DeserializarMensagem()
+        
+        alt Deserialização falha
+            RabbitMqService->>RabbitMQ: BasicNackAsync (reject)
+        else Deserialização ok
+            RabbitMqService->>Worker: ProcessarMensagemAsync()
+            Worker->>ConsolidacaoService: ProcessarLancamentoAsync()
+            
+            ConsolidacaoService->>Repository: VerificarIdempotencia()
+            
+            alt Já processado
+                Repository-->>ConsolidacaoService: Já existe
+                ConsolidacaoService-->>Worker: Return true (skip)
+            else Não processado
+                ConsolidacaoService->>Repository: AtualizarConsolidacao()
+                Repository->>DB: UPSERT consolidado
+                DB-->>Repository: Success
+                
+                ConsolidacaoService->>Repository: MarcarComoProcessado()
+                Repository->>DB: INSERT processado
+                DB-->>Repository: Success
+                
+                Repository-->>ConsolidacaoService: Success
+                ConsolidacaoService-->>Worker: Return true
+            end
+            
+            Worker-->>RabbitMqService: Return success
+            RabbitMqService->>RabbitMQ: BasicAckAsync()
+        end
+    end
+```
+
+### Fluxo de Reconexão do Worker (Resiliência)
+
+```mermaid
+sequenceDiagram
+    participant Worker as Worker Service
+    participant RabbitMqService as RabbitMqService
+    participant RabbitMQ as RabbitMQ
+
+    Worker->>RabbitMqService: Verificar EstaConectado
+    RabbitMqService-->>Worker: false (conexão perdida)
+    
+    Worker->>RabbitMqService: ReconectarAsync()
+    RabbitMqService->>RabbitMqService: FecharConexaoAsync()
+    RabbitMqService->>RabbitMQ: Tentar reconectar
+    
+    alt Reconexão falha
+        RabbitMQ-->>RabbitMqService: Connection failed
+        RabbitMqService-->>Worker: Erro na reconexão
+        Worker->>Worker: Aguardar intervalo
+        Worker->>RabbitMqService: ReconectarAsync() (retry)
+    else Reconexão ok
+        RabbitMQ-->>RabbitMqService: Connection established
+        RabbitMqService->>RabbitMQ: Redeclarar fila
+        RabbitMqService->>Worker: IniciarEscutaAsync()
+        Worker->>Worker: Continuar processamento
+    end
+```
+
+### Fluxo de Tratamento de Erro na Mensageria
+
+```mermaid
+sequenceDiagram
+    participant RabbitMQ as RabbitMQ
+    participant RabbitMqService as RabbitMqService
+    participant Worker as Worker Service
+    participant ConsolidacaoService as ConsolidacaoService
+
+    RabbitMQ->>RabbitMqService: Mensagem recebida
+    RabbitMqService->>RabbitMqService: DeserializarMensagem()
+    
+    alt Erro de deserialização
+        RabbitMqService->>RabbitMQ: BasicNackAsync(requeue: false)
+        Note over RabbitMQ: Mensagem descartada (DLQ)
+    else Deserialização ok
+        RabbitMqService->>Worker: ProcessarMensagemAsync()
+        Worker->>ConsolidacaoService: ProcessarLancamentoAsync()
+        
+        alt Erro temporário (DB indisponível)
+            ConsolidacaoService-->>Worker: Exception
+            Worker-->>RabbitMqService: Return false
+            RabbitMqService->>RabbitMQ: BasicNackAsync(requeue: true)
+            Note over RabbitMQ: Mensagem retorna à fila
+        else Erro permanente (dados inválidos)
+            ConsolidacaoService-->>Worker: Exception
+            Worker-->>RabbitMqService: Return false
+            RabbitMqService->>RabbitMQ: BasicNackAsync(requeue: false)
+            Note over RabbitMQ: Mensagem descartada (DLQ)
+        end
+    end
+```
+
 ## Configuração
 
 ### appsettings.json

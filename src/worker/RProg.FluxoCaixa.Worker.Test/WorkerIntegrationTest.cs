@@ -21,7 +21,7 @@ namespace RProg.FluxoCaixa.Worker.Test
                 Id = Random.Shared.Next(),
                 Valor = 100.50m,
                 Tipo = 2, // 2 = Crédito
-                Data = DateTime.Today,
+                Data = DateTime.UtcNow.Date,
                 Categoria = "vendas",
                 Descricao = "Teste de consolidação"
             };
@@ -71,7 +71,7 @@ namespace RProg.FluxoCaixa.Worker.Test
                     Id = Random.Shared.Next(),
                     Valor = 1500.00m,
                     Tipo = 2, // 2 = Crédito
-                    Data = DateTime.Today,
+                    Data = DateTime.UtcNow.Date,
                     Categoria = "vendas",
                     Descricao = "Venda produto A"
                 },
@@ -80,7 +80,7 @@ namespace RProg.FluxoCaixa.Worker.Test
                     Id = Random.Shared.Next(),
                     Valor = 350.75m,
                     Tipo = 1, // 1 = Débito
-                    Data = DateTime.Today,
+                    Data = DateTime.UtcNow.Date,
                     Categoria = "compras",
                     Descricao = "Compra material"
                 },
@@ -89,7 +89,7 @@ namespace RProg.FluxoCaixa.Worker.Test
                     Id = Random.Shared.Next(),
                     Valor = 800.00m,
                     Tipo = 2, // 2 = Crédito
-                    Data = DateTime.Today,
+                    Data = DateTime.UtcNow.Date,
                     Categoria = "vendas",
                     Descricao = "Venda produto B"
                 }

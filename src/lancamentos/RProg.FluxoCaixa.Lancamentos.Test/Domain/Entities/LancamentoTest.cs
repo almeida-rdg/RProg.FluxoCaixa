@@ -12,7 +12,7 @@ namespace RProg.FluxoCaixa.Lancamentos.Test.Domain.Entities
             // Dado
             var valor = 100m;
             var tipo = TipoLancamento.Credito;
-            var data = DateTime.Now.AddDays(-1);
+            var data = DateTime.UtcNow.AddDays(-1);
             var categoria = "Receita";            var descricao = "Pagamento cliente";
 
             // Quando
@@ -33,7 +33,7 @@ namespace RProg.FluxoCaixa.Lancamentos.Test.Domain.Entities
             // Dado
             var valor = -50m;
             var tipo = TipoLancamento.Debito;
-            var data = DateTime.Now.AddDays(-1);
+            var data = DateTime.UtcNow.AddDays(-1);
             var categoria = "Despesa";            var descricao = "Compra material";
 
             // Quando
@@ -52,7 +52,7 @@ namespace RProg.FluxoCaixa.Lancamentos.Test.Domain.Entities
             // Dado
             var valor = 0m;
             var tipo = TipoLancamento.Credito;
-            var data = DateTime.Now.AddDays(-1);
+            var data = DateTime.UtcNow.AddDays(-1);
             var categoria = "Receita";
             var descricao = "Teste";
 
@@ -68,7 +68,7 @@ namespace RProg.FluxoCaixa.Lancamentos.Test.Domain.Entities
             // Dado
             var valor = -100m;
             var tipo = TipoLancamento.Credito;
-            var data = DateTime.Now.AddDays(-1);
+            var data = DateTime.UtcNow.AddDays(-1);
             var categoria = "Receita";
             var descricao = "Teste";
 
@@ -82,7 +82,7 @@ namespace RProg.FluxoCaixa.Lancamentos.Test.Domain.Entities
             // Dado
             var valor = 100m;
             var tipo = TipoLancamento.Debito;
-            var data = DateTime.Now.AddDays(-1);
+            var data = DateTime.UtcNow.AddDays(-1);
             var categoria = "Despesa";
             var descricao = "Teste";
 
@@ -99,7 +99,7 @@ namespace RProg.FluxoCaixa.Lancamentos.Test.Domain.Entities
             // Dado
             var valor = 100m;
             var tipo = TipoLancamento.Credito;
-            var data = DateTime.Now.AddDays(-1);
+            var data = DateTime.UtcNow.AddDays(-1);
             var descricao = "Teste";
 
             // Quando
@@ -116,7 +116,7 @@ namespace RProg.FluxoCaixa.Lancamentos.Test.Domain.Entities
             // Dado
             var valor = 100m;
             var tipo = TipoLancamento.Credito;
-            var data = DateTime.Now.AddDays(-1);
+            var data = DateTime.UtcNow.AddDays(-1);
             var descricao = "Teste";
 
             // Quando
@@ -133,7 +133,7 @@ namespace RProg.FluxoCaixa.Lancamentos.Test.Domain.Entities
             // Dado
             var valor = 100m;
             var tipo = TipoLancamento.Credito;
-            var data = DateTime.Now.AddDays(-1);
+            var data = DateTime.UtcNow.AddDays(-1);
             var categoria = "Receita";
 
             // Quando
@@ -150,7 +150,7 @@ namespace RProg.FluxoCaixa.Lancamentos.Test.Domain.Entities
             // Dado
             var valor = 100m;
             var tipo = TipoLancamento.Credito;
-            var data = DateTime.Now.AddDays(-1);
+            var data = DateTime.UtcNow.AddDays(-1);
             var categoria = "Receita";
 
             // Quando
@@ -169,7 +169,7 @@ namespace RProg.FluxoCaixa.Lancamentos.Test.Domain.Entities
             // Dado
             var valor = 100m;
             var tipo = TipoLancamento.Credito;
-            var data = DateTime.Now.AddDays(-1);
+            var data = DateTime.UtcNow.AddDays(-1);
             var descricao = "Teste descricao";
 
             // Quando
@@ -186,7 +186,7 @@ namespace RProg.FluxoCaixa.Lancamentos.Test.Domain.Entities
             // Dado
             var valor = 100m;
             var tipo = TipoLancamento.Credito;
-            var data = DateTime.Now.AddDays(-1);
+            var data = DateTime.UtcNow.AddDays(-1);
             var categoria = "Receita";
 
             // Quando
@@ -205,7 +205,7 @@ namespace RProg.FluxoCaixa.Lancamentos.Test.Domain.Entities
             // Dado
             var valor = 100m;
             var tipo = TipoLancamento.Credito;
-            var data = DateTime.Now.AddDays(-1);
+            var data = DateTime.UtcNow.AddDays(-1);
             var descricao = "Descricao valida";
 
             // Quando
@@ -225,7 +225,7 @@ namespace RProg.FluxoCaixa.Lancamentos.Test.Domain.Entities
             // Dado
             var valor = 100m;
             var tipo = TipoLancamento.Credito;
-            var data = DateTime.Now.AddDays(-1);
+            var data = DateTime.UtcNow.AddDays(-1);
             var categoria = "Receita";
 
             // Quando

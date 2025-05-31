@@ -29,6 +29,42 @@ Infrastructure/
 Controllers/           # Controllers da API REST
 ```
 
+```mermaid
+sequenceDiagram
+    participant Cliente
+    participant Proxy as API Gateway (YARP)
+    participant LancamentosAPI as Lançamentos API
+    participant Handler as RegistrarLancamentoHandler
+    participant Repository as LancamentoRepository
+    participant DB as SQL Server
+    participant Publisher as RabbitMqPublisher
+    participant RabbitMQ as RabbitMQ
+
+    Cliente->>Proxy: POST /api/lancamentos
+    Proxy->>LancamentosAPI: Forward request
+    
+    LancamentosAPI->>Handler: Send RegistrarLancamentoCommand
+    Handler->>Handler: ValidarParametrosOperacao()
+    
+    alt Validação falha
+        Handler-->>LancamentosAPI: Throw ExcecaoDadosInvalidos
+        LancamentosAPI-->>Cliente: 400 Bad Request
+    else Validação ok
+        Handler->>Repository: CriarLancamentoAsync(lancamento)
+        Repository->>DB: INSERT INTO Lancamentos
+        DB-->>Repository: Return ID
+        Repository-->>Handler: Return ID
+        
+        Handler->>Publisher: PublicarMensagemAsync(lancamento)
+        Publisher->>RabbitMQ: BasicPublishAsync()
+        RabbitMQ-->>Publisher: Ack
+        Publisher-->>Handler: Success
+        
+        Handler-->>LancamentosAPI: Return ID
+        LancamentosAPI-->>Cliente: 201 Created
+    end
+```
+
 Principais padrões e práticas:
 - SOLID, KISS, DRY
 - Injeção de dependência

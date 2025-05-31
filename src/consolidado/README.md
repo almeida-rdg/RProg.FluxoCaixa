@@ -28,6 +28,32 @@ Infrastructure/
 Controllers/           # Controllers da API REST
 ```
 
+```mermaid
+sequenceDiagram
+    participant Cliente
+    participant Proxy as API Gateway (YARP)
+    participant ConsolidadoAPI as Consolidado API
+    participant Handler as ObterConsolidadosHandler
+    participant Repository as ConsolidadoRepository
+    participant DB as SQL Server
+
+    Cliente->>Proxy: GET /api/consolidado?dataInicial=...&dataFinal=...
+    Proxy->>ConsolidadoAPI: Forward request
+    
+    ConsolidadoAPI->>Handler: Send ObterConsolidadosPorPeriodoQuery
+    Handler->>Repository: ObterPorPeriodoETipoAsync()
+    Repository->>DB: SELECT consolidados
+    DB-->>Repository: Return data
+    
+    Handler->>Repository: ObterUltimaDataAtualizacaoPorTipoAsync()
+    Repository->>DB: SELECT MAX(DataAtualizacao)
+    DB-->>Repository: Return timestamp
+    
+    Repository-->>Handler: Return consolidados + timestamp
+    Handler-->>ConsolidadoAPI: Return ConsolidadoPeriodoResponseDto
+    ConsolidadoAPI-->>Cliente: 200 OK with data
+```
+
 Principais padrões e práticas:
 - SOLID, KISS, DRY
 - Injeção de dependência

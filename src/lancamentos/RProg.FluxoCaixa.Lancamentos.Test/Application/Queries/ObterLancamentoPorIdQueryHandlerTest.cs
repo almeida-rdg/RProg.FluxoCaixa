@@ -31,7 +31,7 @@ namespace RProg.FluxoCaixa.Lancamentos.Test.Application.Queries
             var lancamentoEsperado = new Lancamento(
                 100m,
                 TipoLancamento.Credito,
-                DateTime.Now.AddDays(-1),
+                DateTime.UtcNow.AddDays(-1),
                 "Receita",
                 "Pagamento cliente");
 
@@ -107,7 +107,7 @@ namespace RProg.FluxoCaixa.Lancamentos.Test.Application.Queries
                 .Returns(async (int _, CancellationToken ct) =>
                 {
                     await Task.Delay(100, ct);
-                    return new Lancamento(100m, TipoLancamento.Credito, DateTime.Now.AddDays(-1), "Receita", "Teste");
+                    return new Lancamento(100m, TipoLancamento.Credito, DateTime.UtcNow.AddDays(-1), "Receita", "Teste");
                 });
 
             cancellationTokenSource.Cancel();
